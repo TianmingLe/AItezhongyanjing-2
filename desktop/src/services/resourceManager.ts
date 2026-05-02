@@ -11,9 +11,9 @@ export const ensureResources = async (onProgress: (s: ResourceState) => void): P
   onProgress(last)
 
   const off = window.electronAPI.onResourcesProgress((ev: ResourceProgressEvent) => {
-    const percent = typeof ev.percent === 'number' ? ev.percent : last.percent
-    const message = ev.message ?? last.message
-    last = { phase: ev.phase, percent, message }
+    const percent = ev.percent
+    const message = `${ev.resourceName}: ${ev.message}`
+    last = { phase: 'downloading', percent, message }
     onProgress(last)
   })
 
@@ -26,4 +26,3 @@ export const ensureResources = async (onProgress: (s: ResourceState) => void): P
     off()
   }
 }
-

@@ -4,11 +4,14 @@ export type EnsureResourcesRequest = Record<string, never>
 
 export type EnsureResourcesResult = { ok: true } | { ok: false; error: string }
 
+export type ResourceDownloadPhase = 'downloading' | 'verifying' | 'extracting'
+
 export type ResourceProgressEvent = {
-  type: 'resources'
-  phase: ResourcePhase
-  percent?: number
-  message?: string
+  type: 'progress'
+  resourceName: string
+  phase: ResourceDownloadPhase
+  percent: number
+  message: string
 }
 
 export type ManifestItem = {
@@ -36,6 +39,9 @@ const sha256Re = /^[a-f0-9]{64}$/i
 export const isResourcePhase = (v: unknown): v is ResourcePhase =>
   v === 'checking' || v === 'downloading' || v === 'ready' || v === 'error'
 
+export const isResourceDownloadPhase = (v: unknown): v is ResourceDownloadPhase =>
+  v === 'downloading' || v === 'verifying' || v === 'extracting'
+
 export const isEnsureResourcesRequest = (v: unknown): v is EnsureResourcesRequest => {
   if (!isRecord(v)) return false
   return Object.keys(v).length === 0
@@ -54,12 +60,13 @@ export const isEnsureResourcesResult = (v: unknown): v is EnsureResourcesResult 
 export const isResourceProgressEvent = (v: unknown): v is ResourceProgressEvent => {
   if (!isRecord(v)) return false
   for (const k of Object.keys(v)) {
-    if (k !== 'type' && k !== 'phase' && k !== 'percent' && k !== 'message') return false
+    if (k !== 'type' && k !== 'resourceName' && k !== 'phase' && k !== 'percent' && k !== 'message') return false
   }
-  if (v.type !== 'resources') return false
-  if (!isResourcePhase(v.phase)) return false
-  if (v.percent !== undefined && !isNumber(v.percent)) return false
-  if (v.message !== undefined && !isString(v.message)) return false
+  if (v.type !== 'progress') return false
+  if (!isString(v.resourceName) || !v.resourceName) return false
+  if (!isResourceDownloadPhase(v.phase)) return false
+  if (!isNumber(v.percent)) return false
+  if (!isString(v.message)) return false
   return true
 }
 

@@ -36,7 +36,7 @@ const validateDest = ({ file, jsonText, dest, resourcesRoot }) => {
   }
 
   const abs = path.resolve(resourcesRoot, normalized)
-  const rootAbs = path.resolve(resourcesRoot)
+  const rootAbs = path.resolve(path.join(resourcesRoot, 'resources'))
   if (!abs.startsWith(rootAbs + path.sep) && abs !== rootAbs) {
     errAt(file, findLinePointer(jsonText, dest), 'dest must be inside resourcesRoot')
   }
@@ -78,10 +78,11 @@ const main = () => {
 
   const home = process.env.HOME || process.env.USERPROFILE || ''
   if (!home) errAt(file, '?:?', 'cannot resolve home directory')
-  const resourcesRoot = path.join(home, 'OmniScraperExports', 'resources')
+  const exportsRoot = path.join(home, 'OmniScraperExports')
+  const resourcesRoot = path.join(exportsRoot, 'resources')
 
   for (let i = 0; i < manifest.resources.length; i++) {
-    validateItem({ file, jsonText, idx: i, item: manifest.resources[i], resourcesRoot })
+    validateItem({ file, jsonText, idx: i, item: manifest.resources[i], resourcesRoot: exportsRoot })
   }
 
   process.stdout.write('ok\n')
@@ -89,4 +90,3 @@ const main = () => {
 }
 
 main()
-

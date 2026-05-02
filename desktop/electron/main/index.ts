@@ -69,6 +69,7 @@ async function createWindow() {
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
     appRoot: app.getAppPath(),
+    homeDir: app.getPath('home'),
     resourcesRoot: path.join(rm._internal.resultsRoot, 'resources'),
     getMainWindow: () => mainWindow,
   })

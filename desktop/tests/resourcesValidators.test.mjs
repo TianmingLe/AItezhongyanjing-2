@@ -36,10 +36,10 @@ test('parseEnsureResourcesResult validates ok and rejects unknown fields', () =>
 
 test('parseResourceProgressEvent validates shape', () => {
   assert.deepEqual(
-    validators.parseResourceProgressEvent({ type: 'resources', phase: 'downloading', percent: 10, message: 'x' }),
-    { type: 'resources', phase: 'downloading', percent: 10, message: 'x' },
+    validators.parseResourceProgressEvent({ type: 'progress', resourceName: 'r', phase: 'downloading', percent: 10, message: 'x' }),
+    { type: 'progress', resourceName: 'r', phase: 'downloading', percent: 10, message: 'x' },
   )
-  assert.equal(validators.parseResourceProgressEvent({ type: 'resources', phase: 'oops' }), null)
+  assert.equal(validators.parseResourceProgressEvent({ type: 'progress', resourceName: 'r', phase: 'oops', percent: 1, message: 'x' }), null)
 })
 
 test('isManifestSchema validates shape and sha256', () => {
