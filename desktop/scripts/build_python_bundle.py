@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import venv
+import argparse
 from pathlib import Path
 
 
@@ -32,7 +33,33 @@ def copy_mediacrawler(src: Path, vendor_dst: Path):
     shutil.copytree(src, vendor_dst)
 
 
+def detect_platform() -> str:
+    system = platform.system().lower()
+    if system.startswith("darwin"):
+        return "darwin"
+    if system.startswith("windows"):
+        return "win"
+    return "linux"
+
+
+def detect_arch() -> str:
+    m = platform.machine().lower()
+    if m in ("x86_64", "amd64"):
+        return "x64"
+    if m in ("arm64", "aarch64"):
+        return "arm64"
+    return "x64"
+
+
+def parse_args():
+    p = argparse.ArgumentParser(add_help=True)
+    p.add_argument("--platform", default="")
+    p.add_argument("--arch", default="")
+    return p.parse_args()
+
+
 def main():
+    args = parse_args()
     root = Path(__file__).resolve().parents[1]
     vendor_dir = root / "vendor" / "MediaCrawler"
     src_override = os.environ.get("MEDIA_CRAWLER_SRC", "").strip()
@@ -67,15 +94,10 @@ def main():
     elif pyproject.exists():
         run([py, "-m", "pip", "install", str(vendor_dir)])
 
-    system = platform.system().lower()
-    if system.startswith("darwin"):
-        plat = "mac"
-    elif system.startswith("windows"):
-        plat = "win"
-    else:
-        plat = "linux"
+    plat = args.platform.strip() or detect_platform()
+    arch = args.arch.strip() or detect_arch()
 
-    out_dir = dist_root / plat
+    out_dir = dist_root / plat / arch
     if out_dir.exists():
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -103,13 +125,22 @@ def main():
     ]
     run(cmd, cwd=str(root))
 
+    built = next(out_dir.glob("omni-backend*"))
+
+    selected_dir = dist_root / "selected"
+    if selected_dir.exists():
+        shutil.rmtree(selected_dir)
+    selected_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(built, selected_dir / built.name)
+
     meta = {
         "platform": plat,
-        "backend": str(next(out_dir.glob("omni-backend*"))),
+        "arch": arch,
+        "backend": str(built),
+        "selected_backend": str(selected_dir / built.name),
     }
     (out_dir / "bundle.meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
     main()
-

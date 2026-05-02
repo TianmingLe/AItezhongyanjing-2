@@ -9,6 +9,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "python:bundle": "python3 scripts/build_python_bundle.py",
+    "manifest:validate": "node scripts/validate-manifests.js",
     "package": "npm run build && npm run python:bundle && electron-builder"
   },
   "dependencies": {
@@ -43,11 +44,11 @@
     },
     "files": [
       "out/**",
-      "resources-manifest.json"
+      "resources-manifest*.json"
     ],
     "extraResources": [
       {
-        "from": "python_dist",
+        "from": "python_dist/selected",
         "to": "python"
       }
     ],

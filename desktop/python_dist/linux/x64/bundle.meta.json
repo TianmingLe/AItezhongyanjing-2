@@ -1,0 +1,6 @@
+{
+  "platform": "linux",
+  "arch": "x64",
+  "backend": "/workspace/desktop/python_dist/linux/x64/omni-backend",
+  "selected_backend": "/workspace/desktop/python_dist/selected/omni-backend"
+}

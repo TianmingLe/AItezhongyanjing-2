@@ -7,6 +7,7 @@ import type { EnsureResourcesResult, ResourceProgressEvent } from '../../shared/
 import { isEnsureResourcesRequest } from '../../shared/resources'
 
 import { setupResources } from '../resourceDownloader'
+import { resolveManifestPath } from '../../../scripts/resolve-manifest-path'
 
 type Options = {
   isPackaged: boolean
@@ -65,7 +66,12 @@ export const registerResourcesIpc = (opts: Options) => {
       await setupResources({
         appRoot: opts.appRoot,
         homeDir: opts.homeDir,
-        manifestPath: process.env.OMNI_MANIFEST_PATH || path.join(opts.appRoot, 'resources-manifest.json'),
+        manifestPath: resolveManifestPath({
+          appRoot: opts.appRoot,
+          platform: process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'darwin' : 'linux',
+          arch: process.arch === 'arm64' ? 'arm64' : 'x64',
+          env: process.env,
+        }),
         onProgress: (ev) => sendProgress(win, ev),
       })
       await fs.writeFile(allReady, String(Date.now()), 'utf-8')

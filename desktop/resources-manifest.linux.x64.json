@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "resources": [
+    {
+      "name": "playwright-chromium",
+      "url": "https://cdn.playwright.dev/dbazure/download/playwright/builds/chromium/1161/chromium-linux.zip",
+      "sha256": "25db802cce762a2c5c082b115671b8c37f8ef87c2d08e367d216d56e955e2496",
+      "dest": "resources/playwright-browsers/chromium-1161",
+      "size_mb": 165
+    },
+    {
+      "name": "paddle-ocr-v4-rec",
+      "url": "https://paddleocr.bj.bcebos.com/PP-OCRv4/chinese/ch_PP-OCRv4_rec_infer.tar",
+      "sha256": "830ea228e20c2b30c4db9666066c48512f67a63f5b1a32d0d33dc9170040ce7d",
+      "dest": "resources/models/paddle-ocr-v4-rec",
+      "size_mb": 11
+    },
+    {
+      "name": "whisper-tiny.en",
+      "url": "https://huggingface.co/openai/whisper-tiny.en/resolve/main/pytorch_model.bin",
+      "sha256": "8548de43c352b2c4f327aacbd8291c893d788a7d6ba0a2ec0ef35c09e51dce8a",
+      "dest": "resources/models/whisper-tiny.en",
+      "size_mb": 151
+    }
+  ]
+}
+
