@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "resources": [
+    {
+      "name": "playwright-chromium",
+      "url": "https://example.com/chromium-1234.zip",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "dest": "resources/playwright-browsers/chromium",
+      "size_mb": 285
+    },
+    {
+      "name": "paddle-ocr-v4",
+      "url": "https://example.com/ppocr_v4.onnx",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "dest": "resources/models/paddle",
+      "size_mb": 142
+    }
+  ]
+}
+

@@ -27,6 +27,7 @@ execFileSync(
 
 const require = createRequire(import.meta.url)
 const validators = require(path.join(outDir, 'preload/validators.js'))
+const shared = require(path.join(outDir, 'shared/resources.js'))
 
 test('parseEnsureResourcesResult validates ok and rejects unknown fields', () => {
   assert.deepEqual(validators.parseEnsureResourcesResult({ ok: true }), { ok: true })
@@ -41,3 +42,19 @@ test('parseResourceProgressEvent validates shape', () => {
   assert.equal(validators.parseResourceProgressEvent({ type: 'resources', phase: 'oops' }), null)
 })
 
+test('isManifestSchema validates shape and sha256', () => {
+  assert.equal(
+    shared.isManifestSchema({
+      version: '1.0.0',
+      resources: [{ name: 'x', url: 'https://example.com', sha256: 'a'.repeat(64), dest: 'resources/models/a', size_mb: 1 }],
+    }),
+    true,
+  )
+  assert.equal(
+    shared.isManifestSchema({
+      version: '1.0.0',
+      resources: [{ name: 'x', url: 'https://example.com', sha256: 'abcd', dest: 'resources/models/a' }],
+    }),
+    false,
+  )
+})
