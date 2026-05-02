@@ -60,6 +60,8 @@ npm run package
 
 ### Windows arm64
 
+说明：Playwright 的 Chromium 下载源目前没有稳定的 `chromium-win-arm64.zip`（会返回 400/404），因此 `resources-manifest.win.arm64.json` 复用 `chromium-win64.zip`，在 Windows arm64 上通过系统的 x64 兼容层运行。
+
 在 Windows arm64 构建机：
 
 ```powershell
@@ -98,4 +100,3 @@ npm run manifest:validate
 python3 scripts/build_python_bundle.py --platform darwin --arch arm64
 npm run package
 ```
-
