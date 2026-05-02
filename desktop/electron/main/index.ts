@@ -10,7 +10,11 @@ import { registerResultsIpc } from './ipc/resultsIpc'
 import { createExportManager } from './exportManager'
 import { registerExportIpc } from './ipc/exportIpc'
 import { initTray } from './tray'
+import { maybeCopyArtifacts } from './autoCopyRuns'
+import { detectSupportsOutputDirArg } from './outputDirSupport'
+import { createRunRegistry } from './runRegistry'
 import { isStartTaskConfig } from '../shared/protocol'
+import type { StartTaskConfig } from '../shared/protocol'
 import type { LogEvent, StatusEvent } from '../shared/protocol'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -25,13 +29,22 @@ let quitRequested = false
 
 async function createWindow() {
   const logServer = await startLogServer({ backlogMax: 1000 })
-  const pm = new ProcessManager({
-    pythonExecPath: process.env.MEDIA_CRAWLER_PYTHON,
-    entryPath: process.env.MEDIA_CRAWLER_ENTRY,
-  })
+  const pythonExecPath = process.env.MEDIA_CRAWLER_PYTHON || 'python3'
+  const entryPath = process.env.MEDIA_CRAWLER_ENTRY || '/workspace/MediaCrawler/main.py'
+  const pm = new ProcessManager({ pythonExecPath, entryPath })
 
   const rm = createResultsManager({ homeDir: app.getPath('home'), overrideResultsRoot: process.env.OVERRIDE_RESULTS_ROOT })
   registerResultsIpc(rm)
+  const rr = createRunRegistry({ runsRoot: rm._internal.runsRoot })
+
+  let currentRun:
+    | {
+        runId: string
+        runDir: string
+        startedAtMs: number
+        stopRequested: boolean
+      }
+    | null = null
 
   const preloadPath = path.join(__dirname, '../preload/index.cjs')
   const rendererIndexFile = path.join(__dirname, '../renderer/index.html')
@@ -96,8 +109,51 @@ async function createWindow() {
           // ignore
         }
       }
+
+      if ((ev.status === 'stopped' || ev.status === 'error') && currentRun) {
+        const run = currentRun
+        currentRun = null
+        const finishedAtMs = Date.now()
+        const defaultRunsRoot = process.env.MEDIA_CRAWLER_DEFAULT_RUNS_ROOT || '/workspace/MediaCrawler/results/runs'
+        void (async () => {
+          const status = run.stopRequested ? 'stopped' : ev.status === 'error' ? 'failed' : 'success'
+          await rr.finalizeRun(run.runId, { status, error_message: ev.status === 'error' ? ev.detail : undefined })
+          const copied = await maybeCopyArtifacts({
+            runDir: run.runDir,
+            startedAtMs: run.startedAtMs,
+            finishedAtMs,
+            defaultRunsRoot,
+          })
+          if (copied.ok && copied.sourceDir !== run.runDir) {
+            await rr.updateMeta(run.runId, { warning: 'auto_copy_mode', copied_from: copied.sourceDir })
+            emitSystemLog('WARN', '已启用自动复制模式（MediaCrawler 未写入指定输出目录）')
+          } else if (!copied.ok) {
+            emitSystemLog('WARN', `自动复制失败：${copied.error}`)
+          }
+        })()
+      }
     }
   })
+
+  const emitSystemLog = (level: 'INFO' | 'WARN' | 'ERROR' | 'SUCCESS' | 'PROGRESS', message: string) => {
+    const ev: LogEvent = {
+      type: 'log',
+      level,
+      timestamp: Date.now(),
+      module: 'desktop',
+      message,
+      stream: 'stdout',
+    }
+    logServer.broadcast(ev)
+    if (mainWindow) {
+      try {
+        mainWindow.webContents.send('log:event', ev)
+      } catch {
+        // ignore
+      }
+    }
+    appendE2e({ source: 'desktop', ev })
+  }
 
   teardown = async () => {
     off()
@@ -126,6 +182,48 @@ async function createWindow() {
 
   ipcMain.handle('ping', async () => 'pong')
   ipcMain.handle('task:getWsInfo', async () => ({ wsUrl: logServer.wsUrl, token: logServer.token }))
+  const parseRunFieldsFromArgs = (args: string[]) => {
+    const get = (flag: string) => {
+      const idx = args.indexOf(flag)
+      if (idx === -1) return null
+      return args[idx + 1] ?? null
+    }
+    const p = get('--platform')
+    const specified_id = get('--specified_id')
+    const keyword = get('--keyword')
+    const limit = get('--limit')
+    const mode: 'search' | 'detail' = keyword ? 'search' : 'detail'
+    const platform: 'dy' | 'xhs' | 'bili' | undefined = p === 'dy' || p === 'xhs' || p === 'bili' ? p : undefined
+    return {
+      platform,
+      mode,
+      specified_id: typeof specified_id === 'string' ? specified_id : undefined,
+      keyword: typeof keyword === 'string' ? keyword : undefined,
+      limit: typeof limit === 'string' && Number.isFinite(Number(limit)) ? Number(limit) : undefined,
+    }
+  }
+
+  const startWithRun = async (cfg: StartTaskConfig) => {
+    const args = cfg.args
+    const fields = parseRunFieldsFromArgs(args)
+    const created = await rr.createRun({ platform: fields.platform, mode: fields.mode, cli_args: args })
+    currentRun = { runId: created.runId, runDir: created.runDir, startedAtMs: created.startedAtMs, stopRequested: false }
+
+    await rr.updateMeta(created.runId, fields)
+
+    const env = { ...(cfg.env || {}), RESULTS_DIR: created.runDir }
+    const supports = await detectSupportsOutputDirArg(pythonExecPath, entryPath)
+    const finalArgs = supports ? args.concat(['--output-dir', created.runDir]) : args
+    const res = await pm.startTask({ args: finalArgs, cwd: cfg.cwd, env })
+    if (!res.ok) {
+      await rr.finalizeRun(created.runId, { status: 'failed', error_message: res.error })
+      currentRun = null
+      return { ok: false, error: res.error ?? 'start_failed' }
+    }
+    await rr.updateMeta(created.runId, { cli_args: finalArgs })
+    return { ok: true, runId: created.runId, runDir: created.runDir }
+  }
+
   ipcMain.handle('task:start', async (_e, cfg: unknown) => {
     if (!isStartTaskConfig(cfg)) return { ok: false, error: 'bad_config' }
     const res = await pm.startTask(cfg)
@@ -143,7 +241,15 @@ async function createWindow() {
     }
     return res
   })
-  ipcMain.handle('task:stop', async () => pm.stopTask())
+  ipcMain.handle('task:startWithRun', async (_e, cfg: unknown) => {
+    if (!isStartTaskConfig(cfg)) return { ok: false, error: 'bad_config' }
+    return startWithRun(cfg)
+  })
+
+  ipcMain.handle('task:stop', async () => {
+    if (currentRun) currentRun.stopRequested = true
+    return pm.stopTask()
+  })
 
   win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     console.log(JSON.stringify({ event: 'renderer_console', level, message, line, sourceId }, null, 0))
@@ -182,19 +288,11 @@ async function createWindow() {
 
   if (process.env.E2E_AUTORUN === '1') {
     setTimeout(() => {
-      win.webContents
-        .executeJavaScript(`document.querySelector('[data-testid="start-btn"]')?.click()`, true)
-        .catch(() => undefined)
+      startWithRun({ args: ['--platform', 'dy', '--pipeline', 'mvp', '--specified_id', 'e2e'] }).catch(() => undefined)
     }, 2000)
     setTimeout(() => {
-      win.webContents
-        .executeJavaScript(`document.querySelector('[data-testid="ws-drop-btn"]')?.click()`, true)
-        .catch(() => undefined)
-    }, 10000)
-    setTimeout(() => {
-      win.webContents
-        .executeJavaScript(`document.querySelector('[data-testid="stop-btn"]')?.click()`, true)
-        .catch(() => undefined)
+      if (currentRun) currentRun.stopRequested = true
+      pm.stopTask().catch(() => undefined)
     }, 20000)
     setTimeout(() => {
       app.quit()
@@ -217,6 +315,7 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', async (e) => {
+  quitRequested = true
   if (teardown) {
     e.preventDefault()
     const fn = teardown

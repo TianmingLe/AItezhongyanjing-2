@@ -5,7 +5,11 @@ import type { RunMeta } from '@shared/runs'
 import HistoryList from '@/components/HistoryList'
 import ReportPreview from '@/components/ReportPreview'
 
-export default function HistoryPage() {
+type Props = {
+  onRerun: (cliArgs: string[]) => void
+}
+
+export default function HistoryPage({ onRerun }: Props) {
   const [items, setItems] = useState<RunMeta[]>([])
   const [selected, setSelected] = useState<string | undefined>(undefined)
   const [markdown, setMarkdown] = useState<string>('')
@@ -41,7 +45,16 @@ export default function HistoryPage() {
     <div style={{ height: '100%', display: 'flex' }}>
       <HistoryList items={items} selectedRunId={selected} onSelect={select} onRefresh={refresh} error={error} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <ReportPreview runId={selected} markdown={markdown || '请选择一个任务'} />
+        <ReportPreview
+          runId={selected}
+          markdown={markdown || '请选择一个任务'}
+          canRerun={Boolean(selected && items.find((x) => x.run_id === selected)?.cli_args?.length)}
+          onRerun={() => {
+            const meta = selected ? items.find((x) => x.run_id === selected) : null
+            if (!meta?.cli_args?.length) return
+            onRerun(meta.cli_args)
+          }}
+        />
       </div>
     </div>
   )

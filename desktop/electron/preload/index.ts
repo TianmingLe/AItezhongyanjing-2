@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { EventEnvelope, InitEvent, StartTaskConfig } from '../shared/protocol'
 import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '../shared/runs'
 import type { ExportRequest, ExportResult } from '../shared/export'
+import type { StartWithRunRequest, StartWithRunResult } from '../shared/task'
 import {
   parseIncomingEvent,
   parseListRunsResult,
@@ -10,6 +11,8 @@ import {
   parseResultsRootResult,
   parseExportRequest,
   parseExportResult,
+  parseStartWithRunRequest,
+  parseStartWithRunResult,
   parseStartStopResult,
   parseStartTaskConfig,
   parseWsInfo,
@@ -34,6 +37,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (!parsed) return { ok: false, error: 'bad_config' }
     const raw = await ipcRenderer.invoke('task:start', parsed)
     return parseStartStopResult(raw) ?? { ok: false, error: 'bad_response' }
+  },
+
+  startTaskWithRun: async (config: StartWithRunRequest): Promise<StartWithRunResult> => {
+    const parsed = parseStartWithRunRequest(config)
+    if (!parsed) return { ok: false, error: 'bad_config' }
+    const raw = await ipcRenderer.invoke('task:startWithRun', parsed)
+    return parseStartWithRunResult(raw) ?? { ok: false, error: 'bad_response' }
   },
 
   stopTask: async (): Promise<{ ok: boolean; error?: string }> => {

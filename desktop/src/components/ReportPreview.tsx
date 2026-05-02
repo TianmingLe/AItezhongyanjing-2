@@ -11,9 +11,11 @@ import { exportRun } from '@/services/exportService'
 type Props = {
   runId?: string
   markdown: string
+  canRerun?: boolean
+  onRerun?: () => void
 }
 
-export default function ReportPreview({ runId, markdown }: Props) {
+export default function ReportPreview({ runId, markdown, canRerun, onRerun }: Props) {
   const [exporting, setExporting] = useState<ExportFormat | null>(null)
   const [message, setMessage] = useState<string>('')
 
@@ -54,6 +56,21 @@ export default function ReportPreview({ runId, markdown }: Props) {
           中文显示取决于系统字体，若缺字请使用 Markdown 导出
         </div>
         <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => onRerun?.()}
+            disabled={!canRerun || exporting !== null}
+            style={{
+              padding: '8px 10px',
+              borderRadius: 10,
+              border: '1px solid #303030',
+              background: '#111111',
+              color: '#f0f0f0',
+              cursor: !canRerun || exporting !== null ? 'not-allowed' : 'pointer',
+            }}
+          >
+            重新运行
+          </button>
           <button
             type="button"
             onClick={() => doExport('markdown')}

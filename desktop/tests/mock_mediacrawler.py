@@ -1,4 +1,6 @@
 import argparse
+import os
+import pathlib
 import signal
 import sys
 import time
@@ -9,6 +11,7 @@ def main():
     parser.add_argument("--platform", default="dy")
     parser.add_argument("--pipeline", default="mvp")
     parser.add_argument("--specified_id", default="test")
+    parser.add_argument("--output-dir", default="")
     parser.add_argument("--crash", action="store_true")
     args, _ = parser.parse_known_args()
 
@@ -20,6 +23,15 @@ def main():
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, on_term)
+
+    out_dir = args.output_dir or os.environ.get("RESULTS_DIR", "")
+    if out_dir:
+        p = pathlib.Path(out_dir)
+        p.mkdir(parents=True, exist_ok=True)
+        (p / "mvp_report.md").write_text(
+            f"# Mock Report\n\nplatform={args.platform}\npipeline={args.pipeline}\nspecified_id={args.specified_id}\n",
+            encoding="utf-8",
+        )
 
     print(f"[INFO] [mock] start platform={args.platform} pipeline={args.pipeline} specified_id={args.specified_id}", flush=True)
 
@@ -37,4 +49,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

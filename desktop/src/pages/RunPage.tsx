@@ -6,17 +6,27 @@ import { isEventEnvelope, isInitEvent } from '@shared/protocol'
 import TaskConfig from '@/components/TaskConfig'
 import Terminal from '@/components/Terminal'
 import type { BuiltTask } from '@/utils/argsBuilder'
+import { buildArgs, validateTask } from '@/utils/argsBuilder'
+import type { TaskFormState } from '@/utils/argsBuilder'
 
-export default function RunPage() {
+type Props = {
+  form: TaskFormState
+  onChangeForm: (next: TaskFormState) => void
+  autoStartNonce: number
+}
+
+export default function RunPage({ form, onChangeForm, autoStartNonce }: Props) {
   const [ping, setPing] = useState<string>('...')
   const [wsConnected, setWsConnected] = useState(false)
   const [items, setItems] = useState<EventEnvelope[]>([])
   const [busy, setBusy] = useState(false)
+  const [runId, setRunId] = useState<string>('')
 
   const wsRef = useRef<WebSocket | null>(null)
   const retryRef = useRef(0)
   const stoppingRef = useRef(false)
   const seenRef = useRef<Set<string>>(new Set())
+  const autoStartRef = useRef<number>(0)
 
   useEffect(() => {
     window.electronAPI.ping().then(setPing).catch(() => setPing('error'))
@@ -120,8 +130,10 @@ export default function RunPage() {
 
   const start = async (built: BuiltTask) => {
     const config: StartTaskConfig = built.env ? { args: built.args, env: built.env } : { args: built.args }
-    const res = await window.electronAPI.startTask(config)
-    if (!res.ok) {
+    const res = await window.electronAPI.startTaskWithRun(config)
+    if (res.ok) {
+      setRunId(res.runId)
+    } else {
       push({ type: 'status', status: 'error', timestamp: Date.now(), detail: res.error ?? 'start_failed' })
     }
   }
@@ -135,15 +147,29 @@ export default function RunPage() {
     }
   }
 
+  useEffect(() => {
+    if (autoStartRef.current === autoStartNonce) return
+    autoStartRef.current = autoStartNonce
+    if (busy) return
+    const errs = validateTask(form)
+    if (errs.length) {
+      push({ type: 'status', status: 'error', timestamp: Date.now(), detail: 'rerun_bad_config' })
+      return
+    }
+    const built = buildArgs(form)
+    start(built).catch(() => undefined)
+  }, [autoStartNonce])
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '10px 14px', borderBottom: '1px solid #262626', background: '#101010', color: '#f0f0f0' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontFamily: 'system-ui, -apple-system, Segoe UI, sans-serif' }}>
           <div style={{ opacity: 0.8 }}>ping: {ping}</div>
           <div style={{ opacity: 0.8 }}>ws: {wsConnected ? 'connected' : 'disconnected'}</div>
+          {runId ? <div style={{ opacity: 0.8 }}>run: {runId}</div> : null}
         </div>
       </div>
-      <TaskConfig busy={busy} onStart={start} onStop={stop} />
+      <TaskConfig busy={busy} onStart={start} onStop={stop} value={form} onChange={onChangeForm} />
       <Terminal items={items} />
     </div>
   )

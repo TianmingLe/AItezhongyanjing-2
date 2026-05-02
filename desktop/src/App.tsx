@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import HistoryPage from '@/pages/HistoryPage'
 import PrintPage from '@/pages/PrintPage'
 import RunPage from '@/pages/RunPage'
+import { defaultTaskFormState, parseCliArgsToForm } from '@/utils/cliArgsParse'
 
 type NavKey = 'run' | 'history'
 
@@ -13,6 +14,8 @@ export default function App() {
   if (isPrint) return <PrintPage />
 
   const [nav, setNav] = useState<NavKey>('run')
+  const [form, setForm] = useState(defaultTaskFormState)
+  const [autoStartNonce, setAutoStartNonce] = useState(0)
 
   const containerStyle = useMemo(
     () => ({
@@ -27,7 +30,17 @@ export default function App() {
     <div style={containerStyle}>
       <Sidebar active={nav} onChange={setNav} />
       <main style={{ flex: 1, minWidth: 0 }}>
-        {nav === 'run' ? <RunPage /> : <HistoryPage />}
+        {nav === 'run' ? (
+          <RunPage form={form} onChangeForm={setForm} autoStartNonce={autoStartNonce} />
+        ) : (
+          <HistoryPage
+            onRerun={(cliArgs) => {
+              setForm(parseCliArgsToForm(cliArgs, defaultTaskFormState()))
+              setNav('run')
+              setAutoStartNonce((n) => n + 1)
+            }}
+          />
+        )}
       </main>
     </div>
   )

@@ -4,6 +4,8 @@ import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '../
 import { isListRunsResult, isReadRunReportResult, isResultsRootResult } from '../shared/runs'
 import type { ExportRequest, ExportResult } from '../shared/export'
 import { isExportRequest, isExportResult } from '../shared/export'
+import type { StartWithRunRequest, StartWithRunResult } from '../shared/task'
+import { isStartWithRunRequest, isStartWithRunResult } from '../shared/task'
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -53,3 +55,7 @@ export const parseReadRunReportResult = (v: unknown): ReadRunReportResult | null
 export const parseExportRequest = (v: unknown): ExportRequest | null => (isExportRequest(v) ? v : null)
 
 export const parseExportResult = (v: unknown): ExportResult | null => (isExportResult(v) ? v : null)
+
+export const parseStartWithRunRequest = (v: unknown): StartWithRunRequest | null => (isStartWithRunRequest(v) ? v : null)
+
+export const parseStartWithRunResult = (v: unknown): StartWithRunResult | null => (isStartWithRunResult(v) ? v : null)

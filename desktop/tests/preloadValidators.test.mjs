@@ -22,6 +22,7 @@ execFileSync(
     path.join(repoRoot, 'electron/shared/protocol.ts'),
     path.join(repoRoot, 'electron/shared/runs.ts'),
     path.join(repoRoot, 'electron/shared/export.ts'),
+    path.join(repoRoot, 'electron/shared/task.ts'),
     path.join(repoRoot, 'electron/preload/validators.ts'),
   ],
   { stdio: 'inherit' },
@@ -54,4 +55,9 @@ test('parseListRunsResult rejects unknown fields', () => {
 test('parseExportResult validates ok/path', () => {
   assert.deepEqual(validators.parseExportResult({ ok: true, path: '/tmp/a.md' }), { ok: true, path: '/tmp/a.md' })
   assert.equal(validators.parseExportResult({ ok: true, path: 1 }), null)
+})
+
+test('parseStartWithRunResult rejects unknown fields', () => {
+  const v = { ok: true, runId: 'r', runDir: '/tmp', extra: 1 }
+  assert.equal(validators.parseStartWithRunResult(v), null)
 })

@@ -7,6 +7,8 @@ type Props = {
   busy: boolean
   onStart: (built: BuiltTask) => Promise<void>
   onStop: () => Promise<void>
+  value?: TaskFormState
+  onChange?: (next: TaskFormState) => void
 }
 
 const platformIcon = (p: TaskFormState['platform']) => {
@@ -17,8 +19,8 @@ const platformIcon = (p: TaskFormState['platform']) => {
 
 const errorText = (errs: ValidationError[], field: string) => errs.find((e) => e.field === field)?.message
 
-export default function TaskConfig({ busy, onStart, onStop }: Props) {
-  const [state, setState] = useState<TaskFormState>({
+export default function TaskConfig({ busy, onStart, onStop, value, onChange }: Props) {
+  const [inner, setInner] = useState<TaskFormState>({
     platform: 'dy',
     mode: 'detail',
     specified_id: '',
@@ -33,6 +35,12 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
   })
   const [errs, setErrs] = useState<ValidationError[]>([])
   const [showKey, setShowKey] = useState(false)
+
+  const state = value ?? inner
+  const setState = (next: TaskFormState) => {
+    if (onChange) onChange(next)
+    else setInner(next)
+  }
 
   const built = useMemo(() => buildArgs(state), [state])
   const canStart = !busy
@@ -62,7 +70,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
               aria-label="平台"
               name="platform"
               value={state.platform}
-              onChange={(e) => setState((s) => ({ ...s, platform: e.target.value as TaskFormState['platform'] }))}
+              onChange={(e) => setState({ ...state, platform: e.target.value as TaskFormState['platform'] })}
               style={{
                 flex: 1,
                 padding: '8px 10px',
@@ -86,7 +94,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
             <button
               type="button"
               aria-label="指定 ID 模式"
-              onClick={() => setState((s) => ({ ...s, mode: 'detail' }))}
+              onClick={() => setState({ ...state, mode: 'detail' })}
               style={{
                 padding: '8px 10px',
                 borderRadius: 10,
@@ -101,7 +109,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
             <button
               type="button"
               aria-label="关键词搜索模式"
-              onClick={() => setState((s) => ({ ...s, mode: 'search' }))}
+              onClick={() => setState({ ...state, mode: 'search' })}
               style={{
                 padding: '8px 10px',
                 borderRadius: 10,
@@ -121,10 +129,11 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
             <span style={{ opacity: 0.85 }}>指定 ID</span>
             <input
               aria-label="指定 ID"
+              data-testid="specified-id"
               name="specified_id"
               autoComplete="off"
               value={state.specified_id}
-              onChange={(e) => setState((s) => ({ ...s, specified_id: e.target.value }))}
+              onChange={(e) => setState({ ...state, specified_id: e.target.value })}
               placeholder="例如：7341234567890…"
               style={{
                 padding: '8px 10px',
@@ -145,7 +154,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
                 name="keyword"
                 autoComplete="off"
                 value={state.keyword}
-                onChange={(e) => setState((s) => ({ ...s, keyword: e.target.value }))}
+                onChange={(e) => setState({ ...state, keyword: e.target.value })}
                 placeholder="例如：城市探店…"
                 style={{
                   padding: '8px 10px',
@@ -166,7 +175,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
                 type="number"
                 inputMode="numeric"
                 value={state.limit}
-                onChange={(e) => setState((s) => ({ ...s, limit: Number(e.target.value) }))}
+                onChange={(e) => setState({ ...state, limit: Number(e.target.value) })}
                 placeholder="20…"
                 style={{
                   padding: '8px 10px',
@@ -185,6 +194,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
 
         <button
           type="button"
+          data-testid="start-btn"
           onClick={start}
           disabled={!canStart}
           style={{
@@ -200,6 +210,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
         </button>
         <button
           type="button"
+          data-testid="stop-btn"
           onClick={stop}
           disabled={!busy}
           style={{
@@ -223,7 +234,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
               type="checkbox"
               name="ocr_enabled"
               checked={state.ocr_enabled}
-              onChange={(e) => setState((s) => ({ ...s, ocr_enabled: e.target.checked }))}
+              onChange={(e) => setState({ ...state, ocr_enabled: e.target.checked })}
             />
             <span>OCR</span>
           </label>
@@ -237,7 +248,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
               type="number"
               inputMode="numeric"
               value={state.comment_depth}
-              onChange={(e) => setState((s) => ({ ...s, comment_depth: Number(e.target.value) }))}
+              onChange={(e) => setState({ ...state, comment_depth: Number(e.target.value) })}
               placeholder="0…"
               style={{
                 padding: '8px 10px',
@@ -255,7 +266,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
               type="checkbox"
               name="enable_llm"
               checked={state.enable_llm}
-              onChange={(e) => setState((s) => ({ ...s, enable_llm: e.target.checked }))}
+              onChange={(e) => setState({ ...state, enable_llm: e.target.checked })}
             />
             <span>启用 LLM</span>
           </label>
@@ -269,7 +280,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
                   name="llm_model"
                   autoComplete="off"
                   value={state.llm_model}
-                  onChange={(e) => setState((s) => ({ ...s, llm_model: e.target.value }))}
+                  onChange={(e) => setState({ ...state, llm_model: e.target.value })}
                   placeholder="例如：gpt-4.1-mini…"
                   style={{
                     padding: '8px 10px',
@@ -289,7 +300,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
                   name="llm_base_url"
                   autoComplete="off"
                   value={state.llm_base_url}
-                  onChange={(e) => setState((s) => ({ ...s, llm_base_url: e.target.value }))}
+                  onChange={(e) => setState({ ...state, llm_base_url: e.target.value })}
                   placeholder="例如：https://api.openai.com/v1…"
                   style={{
                     padding: '8px 10px',
@@ -311,7 +322,7 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
                     autoComplete="off"
                     type={showKey ? 'text' : 'password'}
                     value={state.llm_api_key}
-                    onChange={(e) => setState((s) => ({ ...s, llm_api_key: e.target.value }))}
+                    onChange={(e) => setState({ ...state, llm_api_key: e.target.value })}
                     placeholder="不落盘，仅用于本次任务…"
                     style={{
                       flex: 1,
@@ -350,4 +361,3 @@ export default function TaskConfig({ busy, onStart, onStop }: Props) {
     </div>
   )
 }
-

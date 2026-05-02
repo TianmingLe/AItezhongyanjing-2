@@ -3,6 +3,8 @@ export type RunStatus = 'running' | 'success' | 'failed' | 'stopped' | 'unknown'
 export type RunMeta = {
   run_id: string
   created_at_ms: number
+  started_at_ms?: number
+  finished_at_ms?: number
   status: RunStatus
   platform?: 'dy' | 'xhs' | 'bili'
   mode?: 'detail' | 'search'
@@ -18,6 +20,7 @@ export type RunMeta = {
   error_message?: string
   cli_args?: string[]
   warning?: string
+  copied_from?: string
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -37,6 +40,8 @@ const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every
 const allowedKeys = new Set([
   'run_id',
   'created_at_ms',
+  'started_at_ms',
+  'finished_at_ms',
   'status',
   'platform',
   'mode',
@@ -52,6 +57,7 @@ const allowedKeys = new Set([
   'error_message',
   'cli_args',
   'warning',
+  'copied_from',
 ])
 
 export const isRunMeta = (v: unknown): v is RunMeta => {
@@ -61,6 +67,8 @@ export const isRunMeta = (v: unknown): v is RunMeta => {
   }
   if (!isString(v.run_id)) return false
   if (!isNumber(v.created_at_ms)) return false
+  if (v.started_at_ms !== undefined && !isNumber(v.started_at_ms)) return false
+  if (v.finished_at_ms !== undefined && !isNumber(v.finished_at_ms)) return false
   if (!isRunStatus(v.status)) return false
   if (v.platform !== undefined && v.platform !== 'dy' && v.platform !== 'xhs' && v.platform !== 'bili') return false
   if (v.mode !== undefined && v.mode !== 'detail' && v.mode !== 'search') return false
@@ -76,6 +84,7 @@ export const isRunMeta = (v: unknown): v is RunMeta => {
   if (v.error_message !== undefined && !isString(v.error_message)) return false
   if (v.cli_args !== undefined && !isStringArray(v.cli_args)) return false
   if (v.warning !== undefined && !isString(v.warning)) return false
+  if (v.copied_from !== undefined && !isString(v.copied_from)) return false
   return true
 }
 
@@ -112,4 +121,3 @@ export const isReadRunReportResult = (v: unknown): v is ReadRunReportResult => {
   if (v.ok) return isString(v.markdown)
   return isString(v.error)
 }
-
