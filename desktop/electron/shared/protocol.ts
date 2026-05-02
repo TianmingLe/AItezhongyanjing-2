@@ -74,6 +74,10 @@ export const isEventEnvelope = (v: unknown): v is EventEnvelope => isLogEvent(v)
 
 export const isStartTaskConfig = (v: unknown): v is StartTaskConfig => {
   if (!isRecord(v)) return false
+  const keys = Object.keys(v)
+  for (const k of keys) {
+    if (k !== 'args' && k !== 'cwd' && k !== 'env') return false
+  }
   if (!Array.isArray(v.args) || !v.args.every(isString)) return false
   if (v.cwd !== undefined && !isString(v.cwd)) return false
   if (v.env !== undefined) {
