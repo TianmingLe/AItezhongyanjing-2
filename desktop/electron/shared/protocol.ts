@@ -18,6 +18,12 @@ export type StatusEvent = {
   detail?: string
 }
 
+export type InitEvent = {
+  type: 'init'
+  now: number
+  backlog: EventEnvelope[]
+}
+
 export type StartTaskConfig = {
   args: string[]
   cwd?: string
@@ -56,6 +62,14 @@ export const isStatusEvent = (v: unknown): v is StatusEvent => {
   return true
 }
 
+export const isInitEvent = (v: unknown): v is InitEvent => {
+  if (!isRecord(v)) return false
+  if (v.type !== 'init') return false
+  if (typeof v.now !== 'number') return false
+  if (!Array.isArray(v.backlog)) return false
+  return v.backlog.every((x) => isLogEvent(x) || isStatusEvent(x))
+}
+
 export const isEventEnvelope = (v: unknown): v is EventEnvelope => isLogEvent(v) || isStatusEvent(v)
 
 export const isStartTaskConfig = (v: unknown): v is StartTaskConfig => {
@@ -70,4 +84,3 @@ export const isStartTaskConfig = (v: unknown): v is StartTaskConfig => {
   }
   return true
 }
-
