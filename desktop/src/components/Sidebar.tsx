@@ -1,4 +1,4 @@
-type NavKey = 'run' | 'history'
+type NavKey = 'run' | 'history' | 'settings'
 
 type Props = {
   active: NavKey
@@ -36,8 +36,10 @@ export default function Sidebar({ active, onChange }: Props) {
       <button type="button" onClick={() => onChange('history')} style={itemStyle(active === 'history')}>
         历史
       </button>
+      <button type="button" onClick={() => onChange('settings')} style={itemStyle(active === 'settings')}>
+        设置
+      </button>
       <div style={{ flex: 1 }} />
     </div>
   )
 }
-

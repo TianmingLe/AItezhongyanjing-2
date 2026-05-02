@@ -3,6 +3,7 @@ import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '@sh
 import type { ExportRequest, ExportResult } from '@shared/export'
 import type { StartWithRunRequest, StartWithRunResult } from '@shared/task'
 import type { EnsureResourcesResult, ResourceProgressEvent } from '@shared/resources'
+import type { UninstallResult } from '@shared/protocol'
 
 export {}
 
@@ -21,6 +22,7 @@ declare global {
       startTaskWithRun: (config: StartWithRunRequest) => Promise<StartWithRunResult>
       ensureResources: () => Promise<EnsureResourcesResult>
       onResourcesProgress: (cb: (ev: ResourceProgressEvent) => void) => () => void
+      uninstallApp: () => Promise<UninstallResult>
     }
   }
 }

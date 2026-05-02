@@ -5,10 +5,11 @@ import Sidebar from '@/components/Sidebar'
 import HistoryPage from '@/pages/HistoryPage'
 import PrintPage from '@/pages/PrintPage'
 import RunPage from '@/pages/RunPage'
+import SettingsPage from '@/pages/SettingsPage'
 import { ensureResources } from '@/services/resourceManager'
 import { defaultTaskFormState, parseCliArgsToForm } from '@/utils/cliArgsParse'
 
-type NavKey = 'run' | 'history'
+type NavKey = 'run' | 'history' | 'settings'
 
 export default function App() {
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
@@ -74,7 +75,7 @@ export default function App() {
       <main style={{ flex: 1, minWidth: 0 }}>
         {nav === 'run' ? (
           <RunPage form={form} onChangeForm={setForm} autoStartNonce={autoStartNonce} />
-        ) : (
+        ) : nav === 'history' ? (
           <HistoryPage
             onRerun={(cliArgs) => {
               setForm(parseCliArgsToForm(cliArgs, defaultTaskFormState()))
@@ -82,6 +83,8 @@ export default function App() {
               setAutoStartNonce((n) => n + 1)
             }}
           />
+        ) : (
+          <SettingsPage />
         )}
       </main>
     </div>

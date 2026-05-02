@@ -10,6 +10,7 @@ import { registerResultsIpc } from './ipc/resultsIpc'
 import { createExportManager } from './exportManager'
 import { registerExportIpc } from './ipc/exportIpc'
 import { registerResourcesIpc } from './ipc/resourcesIpc'
+import { registerUninstallIpc } from './ipc/uninstallIpc'
 import { initTray } from './tray'
 import { maybeCopyArtifacts } from './autoCopyRuns'
 import { detectSupportsOutputDirArg } from './outputDirSupport'
@@ -73,6 +74,7 @@ async function createWindow() {
     resourcesRoot: path.join(rm._internal.resultsRoot, 'resources'),
     getMainWindow: () => mainWindow,
   })
+  registerUninstallIpc(rm)
 
   const e2eLogPath = process.env.E2E_LOG_PATH
   const appendE2e = (obj: unknown) => {
