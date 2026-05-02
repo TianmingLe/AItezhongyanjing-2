@@ -100,3 +100,11 @@ npm run manifest:validate
 python3 scripts/build_python_bundle.py --platform darwin --arch arm64
 npm run package
 ```
+
+## GitHub Actions
+
+仓库内置工作流：`.github/workflows/build-installers.yml`
+
+- 打 tag（例如 `v0.1.0`）会触发构建并自动生成 Release 附件
+- 也支持 Actions 页面手动触发（workflow_dispatch）
+- Windows arm64 需要 self-hosted runner（GitHub hosted runner 暂不提供）

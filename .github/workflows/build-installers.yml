@@ -1,0 +1,165 @@
+name: build-installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional tag name (e.g. v0.1.0). If provided, create/update a GitHub Release."
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-installers-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            runs_on: ubuntu-latest
+            platform: linux
+            arch: x64
+            builder_args: "--linux --x64 --publish never"
+          - name: win-x64
+            runs_on: windows-latest
+            platform: win
+            arch: x64
+            builder_args: "--win --x64 --publish never"
+          - name: mac-x64
+            runs_on: macos-13
+            platform: darwin
+            arch: x64
+            builder_args: "--mac --x64 --publish never"
+          - name: mac-arm64
+            runs_on: macos-14
+            platform: darwin
+            arch: arm64
+            builder_args: "--mac --arm64 --publish never"
+
+    runs-on: ${{ matrix.runs_on }}
+
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: desktop/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        working-directory: desktop
+        run: npm ci
+
+      - name: Validate manifests
+        working-directory: desktop
+        run: npm run manifest:validate
+
+      - name: Build app
+        working-directory: desktop
+        run: npm run build
+
+      - name: Build python bundle
+        working-directory: desktop
+        run: python scripts/build_python_bundle.py --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+
+      - name: Build installers
+        working-directory: desktop
+        run: npx electron-builder ${{ matrix.builder_args }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*Setup*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+          if-no-files-found: error
+
+  build_win_arm64:
+    if: ${{ false }}
+    runs-on: [self-hosted, windows, ARM64]
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        working-directory: desktop
+        run: npm ci
+      - name: Validate manifests
+        working-directory: desktop
+        run: npm run manifest:validate
+      - name: Build app
+        working-directory: desktop
+        run: npm run build
+      - name: Build python bundle
+        working-directory: desktop
+        run: python scripts/build_python_bundle.py --platform win --arch arm64
+      - name: Build installers
+        working-directory: desktop
+        run: npx electron-builder --win --arm64 --publish never
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-arm64
+          path: |
+            desktop/dist/*Setup*.exe
+            desktop/dist/*.zip
+          if-no-files-found: error
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != '' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            artifacts/**/*.AppImage
+            artifacts/**/*Setup*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+
