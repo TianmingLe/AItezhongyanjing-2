@@ -7,8 +7,12 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared/*": ["electron/shared/*"]
+    },
     "types": ["node"]
   },
   "include": ["electron", "src", "electron.vite.config.ts", "vite.config.ts"]
 }
-
