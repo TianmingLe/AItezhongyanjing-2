@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { EventEnvelope, InitEvent, StartTaskConfig } from '../shared/protocol'
+import type { EventEnvelope, InitEvent, StartTaskConfig, UninstallResult } from '../shared/protocol'
 import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '../shared/runs'
 import type { ExportRequest, ExportResult } from '../shared/export'
 import type { StartWithRunRequest, StartWithRunResult } from '../shared/task'
@@ -20,6 +20,8 @@ import {
   parseStartStopResult,
   parseStartTaskConfig,
   parseWsInfo,
+  parseUninstallRequest,
+  parseUninstallResult,
 } from './validators'
 
 const LOG_CHANNEL = 'log:event'
@@ -108,5 +110,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (!parsed) return { ok: false, error: 'bad_payload' }
     const raw = await ipcRenderer.invoke('export:save', parsed)
     return parseExportResult(raw) ?? { ok: false, error: 'bad_response' }
+  },
+
+  uninstallApp: async (): Promise<UninstallResult> => {
+    const parsed = parseUninstallRequest({})
+    if (!parsed) return { ok: false, error: 'bad_payload' }
+    const raw = await ipcRenderer.invoke('app:uninstall', parsed)
+    return parseUninstallResult(raw) ?? { ok: false, error: 'bad_response' }
   },
 })

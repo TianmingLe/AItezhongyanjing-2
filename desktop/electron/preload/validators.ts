@@ -1,5 +1,6 @@
 import type { EventEnvelope, InitEvent, StartTaskConfig } from '../shared/protocol'
-import { isEventEnvelope, isInitEvent, isStartTaskConfig } from '../shared/protocol'
+import type { UninstallRequest, UninstallResult } from '../shared/protocol'
+import { isEventEnvelope, isInitEvent, isStartTaskConfig, isUninstallRequest, isUninstallResult } from '../shared/protocol'
 import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '../shared/runs'
 import { isListRunsResult, isReadRunReportResult, isResultsRootResult } from '../shared/runs'
 import type { ExportRequest, ExportResult } from '../shared/export'
@@ -70,3 +71,7 @@ export const parseEnsureResourcesResult = (v: unknown): EnsureResourcesResult | 
 
 export const parseResourceProgressEvent = (v: unknown): ResourceProgressEvent | null =>
   (isResourceProgressEvent(v) ? v : null)
+
+export const parseUninstallRequest = (v: unknown): UninstallRequest | null => (isUninstallRequest(v) ? v : null)
+
+export const parseUninstallResult = (v: unknown): UninstallResult | null => (isUninstallResult(v) ? v : null)

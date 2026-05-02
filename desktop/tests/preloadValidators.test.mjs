@@ -62,3 +62,17 @@ test('parseStartWithRunResult rejects unknown fields', () => {
   const v = { ok: true, runId: 'r', runDir: '/tmp', extra: 1 }
   assert.equal(validators.parseStartWithRunResult(v), null)
 })
+
+test('parseUninstallRequest validates empty object', () => {
+  assert.deepEqual(validators.parseUninstallRequest({}), {})
+  assert.equal(validators.parseUninstallRequest({ x: 1 }), null)
+})
+
+test('parseUninstallResult validates ok/actions', () => {
+  assert.deepEqual(validators.parseUninstallResult({ ok: true, actions: [{ type: 'delete', message: 'x' }] }), {
+    ok: true,
+    actions: [{ type: 'delete', message: 'x' }],
+  })
+  assert.deepEqual(validators.parseUninstallResult({ ok: false, error: 'x' }), { ok: false, error: 'x' })
+  assert.equal(validators.parseUninstallResult({ ok: true, actions: [], extra: 1 }), null)
+})

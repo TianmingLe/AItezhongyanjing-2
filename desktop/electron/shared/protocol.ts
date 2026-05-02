@@ -34,6 +34,12 @@ export type StartTaskConfig = {
 
 export type EventEnvelope = LogEvent | StatusEvent
 
+export type UninstallRequest = Record<string, never>
+
+export type UninstallAction = { type: string; message: string }
+
+export type UninstallResult = { ok: true; actions: UninstallAction[] } | { ok: false; error: string }
+
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -90,4 +96,32 @@ export const isStartTaskConfig = (v: unknown): v is StartTaskConfig => {
     }
   }
   return true
+}
+
+export const isUninstallRequest = (v: unknown): v is UninstallRequest => {
+  if (!isRecord(v)) return false
+  return Object.keys(v).length === 0
+}
+
+export const isUninstallResult = (v: unknown): v is UninstallResult => {
+  if (!isRecord(v)) return false
+  const keys = Object.keys(v)
+  for (const k of keys) {
+    if (k !== 'ok' && k !== 'actions' && k !== 'error') return false
+  }
+  if (typeof v.ok !== 'boolean') return false
+  if (v.ok) {
+    if (!Array.isArray(v.actions)) return false
+    for (const a of v.actions) {
+      if (!isRecord(a)) return false
+      const ak = Object.keys(a)
+      for (const k of ak) {
+        if (k !== 'type' && k !== 'message') return false
+      }
+      if (!isString(a.type) || !isString(a.message)) return false
+    }
+    return v.error === undefined
+  }
+  if (!isString(v.error)) return false
+  return v.actions === undefined
 }
