@@ -1,5 +1,9 @@
 import type { EventEnvelope, InitEvent, StartTaskConfig } from '../shared/protocol'
 import { isEventEnvelope, isInitEvent, isStartTaskConfig } from '../shared/protocol'
+import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '../shared/runs'
+import { isListRunsResult, isReadRunReportResult, isResultsRootResult } from '../shared/runs'
+import type { ExportRequest, ExportResult } from '../shared/export'
+import { isExportRequest, isExportResult } from '../shared/export'
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -38,3 +42,14 @@ export const parseIncomingEvent = (v: unknown): EventEnvelope | InitEvent | null
   if (isInitEvent(v)) return v
   return null
 }
+
+export const parseResultsRootResult = (v: unknown): ResultsRootResult | null => (isResultsRootResult(v) ? v : null)
+
+export const parseListRunsResult = (v: unknown): ListRunsResult | null => (isListRunsResult(v) ? v : null)
+
+export const parseReadRunReportResult = (v: unknown): ReadRunReportResult | null =>
+  (isReadRunReportResult(v) ? v : null)
+
+export const parseExportRequest = (v: unknown): ExportRequest | null => (isExportRequest(v) ? v : null)
+
+export const parseExportResult = (v: unknown): ExportResult | null => (isExportResult(v) ? v : null)

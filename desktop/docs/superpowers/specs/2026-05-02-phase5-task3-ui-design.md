@@ -157,6 +157,13 @@ type TaskConfigProps = {
   - llm_model/llm_base_url 必填
   - llm_api_key 可选（若不填给出“可使用环境变量”提示）
 
+可访问性与交互（必须满足）：
+
+- 表单控件必须有 `<label>` 或 `aria-label`（包括下拉、输入框、开关、折叠面板）
+- 输入框必须设置 `name` 与合适的 `autoComplete`（避免密码管理器误触发）
+- placeholder 以 `…` 结尾（例如 `关键词…`、`指定 ID…`）
+- 所有按钮/可交互元素必须有清晰的 `:focus-visible` 样式（深色主题必须显式可见）
+
 #### Terminal（增强）
 
 ```ts
@@ -170,6 +177,9 @@ type TerminalProps = {
 
 - renderer 内存最多保留 2000 条日志行
 - 去重：对 `InitEvent.backlog` 合并时去重（避免断线重连重复）
+- 列表项 key 使用稳定 key（不得使用 index），避免重排导致滚动跳动
+- 自动滚动仅在“用户已接近底部”时生效；用户上滚查看历史时暂停自动滚动，并提供“n 条新日志”跳转按钮（可延后实现，但必须预留结构）
+- 语义：终端容器使用 `role="log"` + `aria-live="polite"` + `aria-relevant="additions"`
 
 #### HistoryList（左侧列表）
 
@@ -195,6 +205,9 @@ type HistoryListProps = {
 
 - App 启动进入“历史”页时拉取一次 listRuns
 - 读取 10 个 meta.json < 500ms（Main 侧并发读取 + 失败降级）
+- 缺失 meta.json 的降级策略（向后兼容）：
+  - 优先从目录名推断（低成本）
+  - 如需读取报告内容推断，只读取文件前 N 行（例如 50 行），避免大文件阻塞
 
 #### ReportPreview
 
@@ -302,6 +315,7 @@ Type guard 要求：
 
 - ReportPreview 顶部提示中文字体依赖系统字体
 - 提供“导出 Markdown”作为稳定备选
+- 若无法精确设置 1cm 边距：退回 `marginsType` 预设，并在日志中记录（不影响导出成功）
 
 ## 托盘与通知设计（Main）
 
@@ -309,6 +323,7 @@ Type guard 要求：
 
 - 关闭按钮：拦截，隐藏窗口（不退出）
 - 最小化：拦截，隐藏窗口
+- 首次关闭/最小化时弹出一次提示：“已最小化到托盘”，避免用户误以为退出（可提供“不再提示”预留）
 - 托盘菜单：
   - 显示/隐藏窗口
   - 退出应用（真正 quit）

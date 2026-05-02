@@ -20,6 +20,8 @@ execFileSync(
     '--module',
     'commonjs',
     path.join(repoRoot, 'electron/shared/protocol.ts'),
+    path.join(repoRoot, 'electron/shared/runs.ts'),
+    path.join(repoRoot, 'electron/shared/export.ts'),
     path.join(repoRoot, 'electron/preload/validators.ts'),
   ],
   { stdio: 'inherit' },
@@ -44,3 +46,12 @@ test('parseStartStopResult validates ok + optional error', () => {
   assert.equal(validators.parseStartStopResult({ ok: false, error: 1 }), null)
 })
 
+test('parseListRunsResult rejects unknown fields', () => {
+  const v = { ok: true, items: [], extra: 1 }
+  assert.equal(validators.parseListRunsResult(v), null)
+})
+
+test('parseExportResult validates ok/path', () => {
+  assert.deepEqual(validators.parseExportResult({ ok: true, path: '/tmp/a.md' }), { ok: true, path: '/tmp/a.md' })
+  assert.equal(validators.parseExportResult({ ok: true, path: 1 }), null)
+})

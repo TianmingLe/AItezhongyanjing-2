@@ -1,7 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 import type { EventEnvelope, InitEvent, StartTaskConfig } from '../shared/protocol'
-import { parseIncomingEvent, parseStartStopResult, parseStartTaskConfig, parseWsInfo } from './validators'
+import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '../shared/runs'
+import type { ExportRequest, ExportResult } from '../shared/export'
+import {
+  parseIncomingEvent,
+  parseListRunsResult,
+  parseReadRunReportResult,
+  parseResultsRootResult,
+  parseExportRequest,
+  parseExportResult,
+  parseStartStopResult,
+  parseStartTaskConfig,
+  parseWsInfo,
+} from './validators'
 
 const LOG_CHANNEL = 'log:event'
 
@@ -39,5 +51,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => {
       ipcRenderer.removeListener(LOG_CHANNEL, handler as any)
     }
+  },
+
+  getResultsRoot: async (): Promise<ResultsRootResult> => {
+    const raw = await ipcRenderer.invoke('results:getRoot')
+    return parseResultsRootResult(raw) ?? { ok: false, error: 'bad_response' }
+  },
+
+  listRuns: async (): Promise<ListRunsResult> => {
+    const raw = await ipcRenderer.invoke('results:listRuns')
+    return parseListRunsResult(raw) ?? { ok: false, error: 'bad_response' }
+  },
+
+  readRunReport: async (runId: string): Promise<ReadRunReportResult> => {
+    const raw = await ipcRenderer.invoke('results:readRunReport', runId)
+    return parseReadRunReportResult(raw) ?? { ok: false, error: 'bad_response' }
+  },
+
+  exportFile: async (req: ExportRequest): Promise<ExportResult> => {
+    const parsed = parseExportRequest(req)
+    if (!parsed) return { ok: false, error: 'bad_payload' }
+    const raw = await ipcRenderer.invoke('export:save', parsed)
+    return parseExportResult(raw) ?? { ok: false, error: 'bad_response' }
   },
 })

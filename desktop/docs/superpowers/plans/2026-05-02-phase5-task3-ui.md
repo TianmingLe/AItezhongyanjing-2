@@ -55,6 +55,10 @@ npx tsc -p tsconfig.json --noEmit
 
 Expected: PASS
 
+- [ ] **Step 6: 全局 focus-visible（深色主题）**
+
+在 `electron/renderer/index.html` 或新增全局 CSS 中加入 `:focus-visible` 样式（不得 `outline: none`），确保键盘导航可见。
+
 ---
 
 ## Task 3.2：Main 侧 results root + run 扫描/读取（IPC）
@@ -150,6 +154,12 @@ Create `src/components/TaskConfig.tsx`：
 - 校验失败展示 inline error
 - “开始任务/停止任务” 调用 `window.electronAPI.startTask({ args, env })` / `stopTask()`
 
+可访问性要求（本 Step 一并完成）：
+- 所有表单控件必须有 `<label>` 或 `aria-label`
+- 输入框必须有 `name` 与合适的 `autoComplete`
+- placeholder 使用 `…`
+- 按钮提供 `:focus-visible`（若全局样式不足，组件内补）
+
 - [ ] **Step 3: 接入 RunPage**
 
 Modify `RunPage.tsx`：
@@ -170,6 +180,9 @@ Create `HistoryList.tsx`：
 - 调用 `listRuns()` 获取 items
 - 按时间倒序渲染（Main 已排序，UI 仍可二次防御）
 - 缺 meta.json：显示 warning 文案 “该任务缺少元数据，建议重新运行”
+降级策略：
+- 优先从目录名推断平台/时间
+- 如需读取报告推断，只读取前 50 行（避免大文件阻塞）
 
 - [ ] **Step 2: HistoryPage 组合**
 
@@ -190,7 +203,7 @@ Modify `HistoryPage.tsx`：
 - [ ] **Step 1: ReportPreview**
 
 Create `ReportPreview.tsx`：
-- 顶部固定提示（PDF 中文依赖系统字体）
+- 顶部固定提示（必须显式显示：PDF 中文依赖系统字体，缺字建议用 Markdown 导出）
 - 渲染：`react-markdown` + `remark-gfm` + `rehype-highlight`
 - 导出按钮：Markdown / PDF / JSON（调用 `exportService`）
 
@@ -253,6 +266,7 @@ Modify `main/index.ts`：
 - `win.on('minimize', e => { e.preventDefault(); win.hide() })`
 - `win.on('close', e => { if (!app.isQuiting) { e.preventDefault(); win.hide() } })`
 - 托盘“退出应用”时设置 `app.isQuiting=true` 再 `app.quit()`
+ - 首次关闭/最小化弹出一次提示（toast 或 Notification）：`已最小化到托盘`
 
 - [ ] **Step 3: 任务完成通知**
 

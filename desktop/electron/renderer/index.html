@@ -4,10 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Desktop</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      :focus-visible {
+        outline: 2px solid rgba(99, 102, 241, 0.85);
+        outline-offset: 2px;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible {
+        outline: 2px solid rgba(99, 102, 241, 0.85);
+        outline-offset: 2px;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>
-
