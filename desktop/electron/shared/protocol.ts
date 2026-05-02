@@ -9,11 +9,13 @@ export type LogEvent = {
   stream: 'stdout' | 'stderr'
 }
 
-export type Status = 'idle' | 'running' | 'stopping'
+export type ManagerStatus = 'idle' | 'running' | 'stopping'
+
+export type TaskStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'error'
 
 export type StatusEvent = {
   type: 'status'
-  status: Status
+  status: TaskStatus
   timestamp: number
   detail?: string
 }
@@ -51,12 +53,13 @@ export const isLogEvent = (v: unknown): v is LogEvent => {
   return true
 }
 
-export const isStatus = (v: unknown): v is Status => v === 'idle' || v === 'running' || v === 'stopping'
+export const isTaskStatus = (v: unknown): v is TaskStatus =>
+  v === 'starting' || v === 'running' || v === 'stopping' || v === 'stopped' || v === 'error'
 
 export const isStatusEvent = (v: unknown): v is StatusEvent => {
   if (!isRecord(v)) return false
   if (v.type !== 'status') return false
-  if (!isStatus(v.status)) return false
+  if (!isTaskStatus(v.status)) return false
   if (typeof v.timestamp !== 'number') return false
   if (v.detail !== undefined && !isString(v.detail)) return false
   return true

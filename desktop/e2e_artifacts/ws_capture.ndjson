@@ -1,0 +1,7 @@
+{"event":"wsinfo","wsUrl":"ws://127.0.0.1:44041/"}
+{"event":"ws_open","url":"ws://127.0.0.1:44041/?token=d66359205ea79fe4b7e854811069bd94e23a37b93df96463"}
+{"event":"ws_close"}
+{"event":"first_session","initCount":1,"msgCount":6}
+{"event":"ws_open","url":"ws://127.0.0.1:44041/?token=d66359205ea79fe4b7e854811069bd94e23a37b93df96463"}
+{"event":"ws_close"}
+{"event":"second_session","initCount":1,"msgCount":7}

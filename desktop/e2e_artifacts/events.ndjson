@@ -1,0 +1,24 @@
+{"source":"pm","ev":{"type":"status","status":"starting","timestamp":1777687851011}}
+{"source":"pm","ev":{"type":"status","status":"running","timestamp":1777687851022}}
+{"source":"pm","ev":{"type":"log","level":"INFO","module":"mock","message":"start platform=dy pipeline=mvp specified_id=test-id","stream":"stdout","timestamp":1777687851629}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=1","stream":"stdout","timestamp":1777687851630}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=2","stream":"stdout","timestamp":1777687852028}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=3","stream":"stdout","timestamp":1777687852428}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=4","stream":"stdout","timestamp":1777687852829}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=5","stream":"stdout","timestamp":1777687853229}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=6","stream":"stdout","timestamp":1777687853629}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=7","stream":"stdout","timestamp":1777687854029}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=8","stream":"stdout","timestamp":1777687854429}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=9","stream":"stdout","timestamp":1777687854829}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=10","stream":"stdout","timestamp":1777687855230}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=11","stream":"stdout","timestamp":1777687855630}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=12","stream":"stdout","timestamp":1777687856030}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=13","stream":"stdout","timestamp":1777687856430}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=14","stream":"stdout","timestamp":1777687856830}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=15","stream":"stdout","timestamp":1777687857230}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=16","stream":"stdout","timestamp":1777687857631}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=17","stream":"stdout","timestamp":1777687858031}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=18","stream":"stdout","timestamp":1777687858431}}
+{"source":"pm","ev":{"type":"status","status":"stopping","timestamp":1777687858812}}
+{"source":"pm","ev":{"type":"log","level":"SUCCESS","module":"mock","message":"received SIGTERM, exiting","stream":"stdout","timestamp":1777687858814}}
+{"source":"pm","ev":{"type":"status","status":"stopped","timestamp":1777687858827,"detail":"exit:0:null"}}

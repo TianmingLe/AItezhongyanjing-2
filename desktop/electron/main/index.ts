@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -18,7 +19,28 @@ let teardown: (() => Promise<void>) | null = null
 
 async function createWindow() {
   const logServer = await startLogServer({ backlogMax: 1000 })
-  const pm = new ProcessManager()
+  const pm = new ProcessManager({
+    pythonExecPath: process.env.MEDIA_CRAWLER_PYTHON,
+    entryPath: process.env.MEDIA_CRAWLER_ENTRY,
+  })
+
+  const e2eLogPath = process.env.E2E_LOG_PATH
+  const appendE2e = (obj: unknown) => {
+    if (!e2eLogPath) return
+    try {
+      fs.appendFileSync(e2eLogPath, `${JSON.stringify(obj)}\n`)
+    } catch {
+      // ignore
+    }
+  }
+
+  if (process.env.E2E_WSINFO_PATH) {
+    try {
+      fs.writeFileSync(process.env.E2E_WSINFO_PATH, JSON.stringify({ wsUrl: logServer.wsUrl, token: logServer.token }))
+    } catch {
+      // ignore
+    }
+  }
 
   const off = pm.onEvent((ev) => {
     // Primary: broadcast via local WebSocket to support renderer reconnect + backlog.
@@ -31,6 +53,7 @@ async function createWindow() {
         // ignore
       }
     }
+    appendE2e({ source: 'pm', ev })
   })
 
   teardown = async () => {
@@ -54,7 +77,20 @@ async function createWindow() {
   ipcMain.handle('task:getWsInfo', async () => ({ wsUrl: logServer.wsUrl, token: logServer.token }))
   ipcMain.handle('task:start', async (_e, cfg: unknown) => {
     if (!isStartTaskConfig(cfg)) return { ok: false, error: 'bad_config' }
-    return pm.startTask(cfg)
+    const res = await pm.startTask(cfg)
+    if (res.ok && process.env.E2E_KILL9 === '1') {
+      const pid = pm.getPid()
+      if (pid) {
+        setTimeout(() => {
+          try {
+            process.kill(pid, 'SIGKILL')
+          } catch {
+            // ignore
+          }
+        }, 1500)
+      }
+    }
+    return res
   })
   ipcMain.handle('task:stop', async () => pm.stopTask())
 
@@ -72,6 +108,27 @@ async function createWindow() {
       console.log(JSON.stringify({ event: 'renderer_ready', h1: '' }, null, 0))
     }
   })
+
+  if (process.env.E2E_AUTORUN === '1') {
+    setTimeout(() => {
+      win.webContents
+        .executeJavaScript(`document.querySelector('[data-testid="start-btn"]')?.click()`, true)
+        .catch(() => undefined)
+    }, 2000)
+    setTimeout(() => {
+      win.webContents
+        .executeJavaScript(`document.querySelector('[data-testid="ws-drop-btn"]')?.click()`, true)
+        .catch(() => undefined)
+    }, 10000)
+    setTimeout(() => {
+      win.webContents
+        .executeJavaScript(`document.querySelector('[data-testid="stop-btn"]')?.click()`, true)
+        .catch(() => undefined)
+    }, 20000)
+    setTimeout(() => {
+      app.quit()
+    }, 28000)
+  }
 
   const devUrl = process.env.ELECTRON_RENDERER_URL || process.env.VITE_DEV_SERVER_URL
   if (devUrl) {

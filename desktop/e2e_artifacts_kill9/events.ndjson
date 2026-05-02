@@ -1,0 +1,7 @@
+{"source":"pm","ev":{"type":"status","status":"starting","timestamp":1777687895923}}
+{"source":"pm","ev":{"type":"status","status":"running","timestamp":1777687895935}}
+{"source":"pm","ev":{"type":"log","level":"INFO","module":"mock","message":"start platform=dy pipeline=mvp specified_id=test-id","stream":"stdout","timestamp":1777687896541}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=1","stream":"stdout","timestamp":1777687896542}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=2","stream":"stdout","timestamp":1777687896940}}
+{"source":"pm","ev":{"type":"log","level":"PROGRESS","module":"mock","message":"tick=3","stream":"stdout","timestamp":1777687897341}}
+{"source":"pm","ev":{"type":"status","status":"error","timestamp":1777687897438,"detail":"exit:null:SIGKILL"}}

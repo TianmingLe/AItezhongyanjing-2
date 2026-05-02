@@ -9,16 +9,28 @@ export default function App() {
   const [ping, setPing] = useState<string>('...')
   const [wsConnected, setWsConnected] = useState(false)
   const [items, setItems] = useState<EventEnvelope[]>([])
+  const [specifiedId, setSpecifiedId] = useState('test-id')
 
   const wsRef = useRef<WebSocket | null>(null)
   const retryRef = useRef(0)
   const stoppingRef = useRef(false)
+  const seenRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     window.electronAPI.ping().then(setPing).catch(() => setPing('error'))
   }, [])
 
   const push = (ev: EventEnvelope) => {
+    const key =
+      ev.type === 'log'
+        ? `log|${ev.timestamp}|${ev.level}|${ev.module ?? ''}|${ev.message}|${ev.stream}`
+        : `status|${ev.timestamp}|${ev.status}|${ev.detail ?? ''}`
+    if (seenRef.current.has(key)) return
+    seenRef.current.add(key)
+    if (seenRef.current.size > 5000) {
+      const keep = new Set(Array.from(seenRef.current).slice(-3000))
+      seenRef.current = keep
+    }
     setItems((prev) => {
       const next = prev.concat(ev)
       return next.length > 2000 ? next.slice(next.length - 2000) : next
@@ -69,7 +81,17 @@ export default function App() {
         if (isInitEvent(obj)) {
           const init = obj as InitEvent
           setItems((prev) => {
-            const next = prev.concat(init.backlog.filter(isEventEnvelope))
+            const filtered = init.backlog.filter(isEventEnvelope)
+            for (const e of filtered) {
+              const key =
+                e.type === 'log'
+                  ? `log|${e.timestamp}|${e.level}|${e.module ?? ''}|${e.message}|${e.stream}`
+                  : `status|${e.timestamp}|${e.status}|${e.detail ?? ''}`
+              if (!seenRef.current.has(key)) {
+                seenRef.current.add(key)
+              }
+            }
+            const next = prev.concat(filtered)
             return next.length > 2000 ? next.slice(next.length - 2000) : next
           })
           return
@@ -100,19 +122,39 @@ export default function App() {
   }, [])
 
   const start = async () => {
-    const config: StartTaskConfig = { args: [] }
+    const config: StartTaskConfig = {
+      args: ['--platform', 'dy', '--pipeline', 'mvp', '--specified_id', specifiedId],
+    }
     const res = await window.electronAPI.startTask(config)
     if (!res.ok) {
-      push({ type: 'status', status: 'idle', timestamp: Date.now(), detail: res.error ?? 'start_failed' })
+      push({ type: 'status', status: 'error', timestamp: Date.now(), detail: res.error ?? 'start_failed' })
     }
   }
 
   const stop = async () => {
     const res = await window.electronAPI.stopTask()
     if (!res.ok) {
-      push({ type: 'status', status: 'idle', timestamp: Date.now(), detail: res.error ?? 'stop_failed' })
+      push({ type: 'status', status: 'error', timestamp: Date.now(), detail: res.error ?? 'stop_failed' })
     } else {
       push({ type: 'log', level: 'SUCCESS', timestamp: Date.now(), message: '任务已终止', stream: 'stdout' })
+    }
+  }
+
+  const startCrash = async () => {
+    const config: StartTaskConfig = {
+      args: ['--platform', 'dy', '--pipeline', 'mvp', '--specified_id', specifiedId, '--crash'],
+    }
+    const res = await window.electronAPI.startTask(config)
+    if (!res.ok) {
+      push({ type: 'status', status: 'error', timestamp: Date.now(), detail: res.error ?? 'start_failed' })
+    }
+  }
+
+  const dropWs = () => {
+    try {
+      wsRef.current?.close()
+    } catch {
+      // ignore
     }
   }
 
@@ -136,12 +178,31 @@ export default function App() {
         <div style={{ fontWeight: 600 }}>Desktop</div>
         <div style={{ opacity: 0.8 }}>ping: {ping}</div>
         <div style={{ opacity: 0.8 }}>ws: {wsConnected ? 'connected' : 'disconnected'}</div>
+        <input
+          value={specifiedId}
+          onChange={(e) => setSpecifiedId(e.target.value)}
+          placeholder="specified_id"
+          style={{
+            width: 220,
+            padding: '6px 10px',
+            borderRadius: 6,
+            border: '1px solid #303030',
+            background: '#141414',
+            color: '#f0f0f0',
+          }}
+        />
         <div style={{ flex: 1 }} />
-        <button onClick={start} style={{ padding: '6px 10px' }}>
+        <button data-testid="start-btn" onClick={start} style={{ padding: '6px 10px' }}>
           Start
         </button>
-        <button onClick={stop} style={{ padding: '6px 10px' }}>
+        <button data-testid="stop-btn" onClick={stop} style={{ padding: '6px 10px' }}>
           Stop
+        </button>
+        <button data-testid="crash-btn" onClick={startCrash} style={{ padding: '6px 10px' }}>
+          Start Crash
+        </button>
+        <button data-testid="ws-drop-btn" onClick={dropWs} style={{ padding: '6px 10px' }}>
+          WS 断线
         </button>
       </div>
 

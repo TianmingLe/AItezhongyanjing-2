@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import * as readline from 'node:readline'
 
-import type { EventEnvelope, LogEvent, LogLevel, StartTaskConfig, Status, StatusEvent } from '../shared/protocol'
+import type { EventEnvelope, LogEvent, LogLevel, ManagerStatus, StartTaskConfig, StatusEvent, TaskStatus } from '../shared/protocol'
 import { isStartTaskConfig } from '../shared/protocol'
 
 type Listener = (ev: EventEnvelope) => void
@@ -48,13 +48,14 @@ const parseLine = (line: string, stream: 'stdout' | 'stderr'): Omit<LogEvent, 't
 }
 
 export class ProcessManager {
-  private status: Status = 'idle'
+  private status: ManagerStatus = 'idle'
   private child: ChildProcessWithoutNullStreams | null = null
   private stopTimer: NodeJS.Timeout | null = null
   private rlOut: readline.Interface | null = null
   private rlErr: readline.Interface | null = null
   private listeners = new Set<Listener>()
   private finalized = false
+  private stopRequested = false
 
   private pythonExecPath: string
   private entryPath: string
@@ -64,8 +65,12 @@ export class ProcessManager {
     this.entryPath = opts?.entryPath || '/workspace/MediaCrawler/main.py'
   }
 
-  getStatus(): Status {
+  getStatus(): ManagerStatus {
     return this.status
+  }
+
+  getPid(): number | null {
+    return this.child?.pid ?? null
   }
 
   onEvent(cb: Listener): () => void {
@@ -85,16 +90,14 @@ export class ProcessManager {
     }
   }
 
-  private emitStatus(status: Status, detail?: string) {
-    this.status = status
+  private emitTaskStatus(status: TaskStatus, detail?: string) {
     const ev: StatusEvent = { type: 'status', status, timestamp: now(), detail }
     this.emit(ev)
   }
 
-  private finalize(detail?: string) {
+  private finalize() {
     if (this.finalized) return
     this.finalized = true
-    this.emitStatus('idle', detail)
     if (this.stopTimer) {
       clearTimeout(this.stopTimer)
       this.stopTimer = null
@@ -113,6 +116,8 @@ export class ProcessManager {
       this.child.removeAllListeners()
     }
     this.child = null
+    this.status = 'idle'
+    this.stopRequested = false
   }
 
   async startTask(config: unknown): Promise<{ ok: boolean; error?: string }> {
@@ -120,7 +125,7 @@ export class ProcessManager {
       return { ok: false, error: 'bad_config' }
     }
     if (this.child) {
-      this.emitStatus('running', 'process_already_running')
+      this.emitTaskStatus('error', 'process_already_running')
       return { ok: false, error: 'process_already_running' }
     }
     if (config.env && isDangerousEnvOverride(config.env)) {
@@ -128,7 +133,9 @@ export class ProcessManager {
     }
 
     this.finalized = false
-    this.emitStatus('running', 'starting')
+    this.stopRequested = false
+    this.status = 'running'
+    this.emitTaskStatus('starting')
 
     const child = spawn(this.pythonExecPath, ['-u', this.entryPath, ...config.args], {
       cwd: config.cwd,
@@ -157,26 +164,36 @@ export class ProcessManager {
     })
 
     child.on('error', (e) => {
-      this.finalize(`error:${String(e)}`)
+      this.emitTaskStatus('error', String(e))
+      this.finalize()
     })
 
     child.on('exit', (code, signal) => {
-      this.finalize(`exit:${code ?? 'null'}:${signal ?? 'null'}`)
+      const detail = `exit:${code ?? 'null'}:${signal ?? 'null'}`
+      if (this.stopRequested) {
+        this.emitTaskStatus('stopped', detail)
+      } else if (code === 0) {
+        this.emitTaskStatus('stopped', detail)
+      } else {
+        this.emitTaskStatus('error', detail)
+      }
+      this.finalize()
     })
 
-    this.emitStatus('running', 'running')
+    this.emitTaskStatus('running')
     return { ok: true }
   }
 
   async stopTask(): Promise<{ ok: boolean }> {
     if (!this.child) {
-      this.emitStatus('idle', 'not_running')
       return { ok: true }
     }
     if (this.status === 'stopping') return { ok: true }
 
     const child = this.child
-    this.emitStatus('stopping')
+    this.status = 'stopping'
+    this.stopRequested = true
+    this.emitTaskStatus('stopping')
 
     try {
       child.kill('SIGTERM')
@@ -202,7 +219,8 @@ export class ProcessManager {
       }
       await new Promise<void>((r) => setTimeout(() => r(), 50))
       if (this.child) {
-        this.finalize('killed')
+        this.emitTaskStatus('stopped', 'killed')
+        this.finalize()
       }
     }
 
