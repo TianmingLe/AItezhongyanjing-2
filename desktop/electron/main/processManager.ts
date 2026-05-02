@@ -7,8 +7,10 @@ import { isStartTaskConfig } from '../shared/protocol'
 type Listener = (ev: EventEnvelope) => void
 
 type Options = {
+  mode?: 'python' | 'exe'
   pythonExecPath?: string
   entryPath?: string
+  execPath?: string
 }
 
 const LEVEL_RE = /^\[(INFO|WARN|ERROR|SUCCESS|PROGRESS)\]\s*(.*)$/
@@ -57,12 +59,16 @@ export class ProcessManager {
   private finalized = false
   private stopRequested = false
 
+  private mode: 'python' | 'exe'
   private pythonExecPath: string
   private entryPath: string
+  private execPath: string
 
   constructor(opts?: Options) {
+    this.mode = opts?.mode || 'python'
     this.pythonExecPath = opts?.pythonExecPath || 'python3'
-    this.entryPath = opts?.entryPath || '/workspace/MediaCrawler/main.py'
+    this.entryPath = opts?.entryPath || ''
+    this.execPath = opts?.execPath || opts?.pythonExecPath || ''
   }
 
   getStatus(): ManagerStatus {
@@ -137,7 +143,9 @@ export class ProcessManager {
     this.status = 'running'
     this.emitTaskStatus('starting')
 
-    const child = spawn(this.pythonExecPath, ['-u', this.entryPath, ...config.args], {
+    const argv = this.mode === 'exe' ? config.args : ['-u', this.entryPath, ...config.args]
+    const cmd = this.mode === 'exe' ? this.execPath : this.pythonExecPath
+    const child = spawn(cmd, argv, {
       cwd: config.cwd,
       env: {
         ...process.env,

@@ -9,10 +9,12 @@ import { createResultsManager } from './resultsManager'
 import { registerResultsIpc } from './ipc/resultsIpc'
 import { createExportManager } from './exportManager'
 import { registerExportIpc } from './ipc/exportIpc'
+import { registerResourcesIpc } from './ipc/resourcesIpc'
 import { initTray } from './tray'
 import { maybeCopyArtifacts } from './autoCopyRuns'
 import { detectSupportsOutputDirArg } from './outputDirSupport'
 import { createRunRegistry } from './runRegistry'
+import { resolveBackend } from './backendPaths'
 import { isStartTaskConfig } from '../shared/protocol'
 import type { StartTaskConfig } from '../shared/protocol'
 import type { LogEvent, StatusEvent } from '../shared/protocol'
@@ -29,9 +31,11 @@ let quitRequested = false
 
 async function createWindow() {
   const logServer = await startLogServer({ backlogMax: 1000 })
-  const pythonExecPath = process.env.MEDIA_CRAWLER_PYTHON || 'python3'
-  const entryPath = process.env.MEDIA_CRAWLER_ENTRY || '/workspace/MediaCrawler/main.py'
-  const pm = new ProcessManager({ pythonExecPath, entryPath })
+  const backend = resolveBackend({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, appRoot: app.getAppPath(), env: process.env })
+  const pm =
+    backend.mode === 'exe'
+      ? new ProcessManager({ mode: 'exe', execPath: backend.execPath })
+      : new ProcessManager({ mode: 'python', pythonExecPath: backend.pythonExecPath, entryPath: backend.entryPath })
 
   const rm = createResultsManager({ homeDir: app.getPath('home'), overrideResultsRoot: process.env.OVERRIDE_RESULTS_ROOT })
   registerResultsIpc(rm)
@@ -60,6 +64,14 @@ async function createWindow() {
     preloadPath,
   })
   registerExportIpc(em)
+
+  registerResourcesIpc({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    appRoot: app.getAppPath(),
+    resourcesRoot: path.join(rm._internal.resultsRoot, 'resources'),
+    getMainWindow: () => mainWindow,
+  })
 
   const e2eLogPath = process.env.E2E_LOG_PATH
   const appendE2e = (obj: unknown) => {
@@ -212,7 +224,10 @@ async function createWindow() {
     await rr.updateMeta(created.runId, fields)
 
     const env = { ...(cfg.env || {}), RESULTS_DIR: created.runDir }
-    const supports = await detectSupportsOutputDirArg(pythonExecPath, entryPath)
+    const supports =
+      backend.mode === 'python'
+        ? await detectSupportsOutputDirArg(backend.pythonExecPath, backend.entryPath)
+        : await detectSupportsOutputDirArg(backend.execPath, '')
     const finalArgs = supports ? args.concat(['--output-dir', created.runDir]) : args
     const res = await pm.startTask({ args: finalArgs, cwd: cfg.cwd, env })
     if (!res.ok) {

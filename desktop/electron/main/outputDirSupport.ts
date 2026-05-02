@@ -6,6 +6,10 @@ let cached: boolean | null = null
 
 export const detectSupportsOutputDirArg = async (pythonExecPath: string, entryPath: string): Promise<boolean> => {
   if (cached !== null) return cached
+  if (!entryPath) {
+    cached = true
+    return cached
+  }
   const help = await new Promise<string>((resolve) => {
     execFile(pythonExecPath, ['-u', entryPath, '--help'], { timeout: 5000 }, (_err, stdout, stderr) => {
       resolve(`${stdout ?? ''}\n${stderr ?? ''}`)
@@ -18,4 +22,3 @@ export const detectSupportsOutputDirArg = async (pythonExecPath: string, entryPa
 export const resetOutputDirSupportCacheForTests = () => {
   cached = null
 }
-

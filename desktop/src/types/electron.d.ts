@@ -2,6 +2,7 @@ import type { EventEnvelope, InitEvent, StartTaskConfig } from '@shared/protocol
 import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '@shared/runs'
 import type { ExportRequest, ExportResult } from '@shared/export'
 import type { StartWithRunRequest, StartWithRunResult } from '@shared/task'
+import type { EnsureResourcesResult, ResourceProgressEvent } from '@shared/resources'
 
 export {}
 
@@ -18,6 +19,8 @@ declare global {
       readRunReport: (runId: string) => Promise<ReadRunReportResult>
       exportFile: (req: ExportRequest) => Promise<ExportResult>
       startTaskWithRun: (config: StartWithRunRequest) => Promise<StartWithRunResult>
+      ensureResources: () => Promise<EnsureResourcesResult>
+      onResourcesProgress: (cb: (ev: ResourceProgressEvent) => void) => () => void
     }
   }
 }

@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "electron-vite dev -- --no-sandbox",
     "build": "electron-vite build",
-    "preview": "electron-vite preview"
+    "preview": "electron-vite preview",
+    "python:bundle": "python3 scripts/build_python_bundle.py",
+    "package": "npm run build && npm run python:bundle && electron-builder"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",
@@ -25,8 +27,41 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "typescript": "^5.7.3",
     "vite": "^5.4.10"
+  },
+  "build": {
+    "appId": "com.omni.scraper",
+    "productName": "OmniScraper",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**"
+    ],
+    "extraResources": [
+      {
+        "from": "python_dist",
+        "to": "python"
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
   }
 }

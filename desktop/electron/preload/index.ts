@@ -4,6 +4,7 @@ import type { EventEnvelope, InitEvent, StartTaskConfig } from '../shared/protoc
 import type { ListRunsResult, ReadRunReportResult, ResultsRootResult } from '../shared/runs'
 import type { ExportRequest, ExportResult } from '../shared/export'
 import type { StartWithRunRequest, StartWithRunResult } from '../shared/task'
+import type { EnsureResourcesRequest, EnsureResourcesResult, ResourceProgressEvent } from '../shared/resources'
 import {
   parseIncomingEvent,
   parseListRunsResult,
@@ -13,12 +14,16 @@ import {
   parseExportResult,
   parseStartWithRunRequest,
   parseStartWithRunResult,
+  parseEnsureResourcesRequest,
+  parseEnsureResourcesResult,
+  parseResourceProgressEvent,
   parseStartStopResult,
   parseStartTaskConfig,
   parseWsInfo,
 } from './validators'
 
 const LOG_CHANNEL = 'log:event'
+const RES_CHANNEL = 'resources:progress'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   ping: () => ipcRenderer.invoke('ping'),
@@ -60,6 +65,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(LOG_CHANNEL, handler as any)
     return () => {
       ipcRenderer.removeListener(LOG_CHANNEL, handler as any)
+    }
+  },
+
+  ensureResources: async (): Promise<EnsureResourcesResult> => {
+    const req: EnsureResourcesRequest = {}
+    const parsed = parseEnsureResourcesRequest(req)
+    if (!parsed) return { ok: false, error: 'bad_payload' }
+    const raw = await ipcRenderer.invoke('resources:ensure', parsed)
+    return parseEnsureResourcesResult(raw) ?? { ok: false, error: 'bad_response' }
+  },
+
+  onResourcesProgress: (cb: (ev: ResourceProgressEvent) => void): (() => void) => {
+    const handler = (_evt: unknown, payload: unknown) => {
+      const parsed = parseResourceProgressEvent(payload)
+      if (!parsed) return
+      cb(parsed)
+    }
+    ipcRenderer.on(RES_CHANNEL, handler as any)
+    return () => {
+      ipcRenderer.removeListener(RES_CHANNEL, handler as any)
     }
   },
 

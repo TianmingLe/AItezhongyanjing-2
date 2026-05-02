@@ -6,6 +6,8 @@ import type { ExportRequest, ExportResult } from '../shared/export'
 import { isExportRequest, isExportResult } from '../shared/export'
 import type { StartWithRunRequest, StartWithRunResult } from '../shared/task'
 import { isStartWithRunRequest, isStartWithRunResult } from '../shared/task'
+import type { EnsureResourcesRequest, EnsureResourcesResult, ResourceProgressEvent } from '../shared/resources'
+import { isEnsureResourcesRequest, isEnsureResourcesResult, isResourceProgressEvent } from '../shared/resources'
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -59,3 +61,12 @@ export const parseExportResult = (v: unknown): ExportResult | null => (isExportR
 export const parseStartWithRunRequest = (v: unknown): StartWithRunRequest | null => (isStartWithRunRequest(v) ? v : null)
 
 export const parseStartWithRunResult = (v: unknown): StartWithRunResult | null => (isStartWithRunResult(v) ? v : null)
+
+export const parseEnsureResourcesRequest = (v: unknown): EnsureResourcesRequest | null =>
+  (isEnsureResourcesRequest(v) ? v : null)
+
+export const parseEnsureResourcesResult = (v: unknown): EnsureResourcesResult | null =>
+  (isEnsureResourcesResult(v) ? v : null)
+
+export const parseResourceProgressEvent = (v: unknown): ResourceProgressEvent | null =>
+  (isResourceProgressEvent(v) ? v : null)

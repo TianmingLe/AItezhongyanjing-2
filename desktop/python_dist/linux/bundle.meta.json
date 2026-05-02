@@ -1,0 +1,4 @@
+{
+  "platform": "linux",
+  "backend": "/workspace/desktop/python_dist/linux/omni-backend"
+}

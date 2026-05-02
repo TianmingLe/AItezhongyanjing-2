@@ -23,6 +23,7 @@ execFileSync(
     path.join(repoRoot, 'electron/shared/runs.ts'),
     path.join(repoRoot, 'electron/shared/export.ts'),
     path.join(repoRoot, 'electron/shared/task.ts'),
+    path.join(repoRoot, 'electron/shared/resources.ts'),
     path.join(repoRoot, 'electron/preload/validators.ts'),
   ],
   { stdio: 'inherit' },
