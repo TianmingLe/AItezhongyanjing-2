@@ -41,6 +41,17 @@ export const registerResourcesIpc = (opts: Options) => {
   if (registered) return
   registered = true
 
+  const mapError = (e: unknown) => {
+    const msg = String(e || '')
+    if (msg.includes('Resource download in progress by another instance')) return '资源正在被另一个实例下载，请稍后重试'
+    if (msg.includes('disk_space_insufficient')) return '磁盘空间不足，请清理空间后重试'
+    if (msg.includes('sha256_mismatch')) return '资源校验失败（SHA256 不一致），请重试或更换网络'
+    if (msg.includes('ENOTFOUND') || msg.includes('EAI_AGAIN') || msg.includes('getaddrinfo')) return '网络不可达，请检查网络/代理设置'
+    if (msg.includes('ECONNREFUSED') || msg.includes('ETIMEDOUT') || msg.includes('ECONNRESET')) return '网络连接失败或超时，请重试'
+    if (msg.includes('http_')) return '下载失败（HTTP 错误），请重试'
+    return msg.replace(/^Error:\s*/g, '')
+  }
+
   ipcMain.handle('resources:ensure', async (_e, payload: unknown): Promise<EnsureResourcesResult> => {
     if (!isEnsureResourcesRequest(payload)) return { ok: false, error: 'bad_payload' }
 
@@ -60,7 +71,7 @@ export const registerResourcesIpc = (opts: Options) => {
       await fs.writeFile(allReady, String(Date.now()), 'utf-8')
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: String(e) }
+      return { ok: false, error: mapError(e) }
     }
   })
 }

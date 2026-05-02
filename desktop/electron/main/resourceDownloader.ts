@@ -5,6 +5,9 @@ import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import * as http from 'node:http'
 import * as https from 'node:https'
+import { createRequire } from 'node:module'
+
+import { ProxyAgent } from 'proxy-agent'
 
 import type { ManifestSchema } from '../shared/resources'
 import { isManifestSchema } from '../shared/resources'
@@ -34,6 +37,18 @@ const ensureDir = async (p: string) => {
   await fs.mkdir(p, { recursive: true })
 }
 
+const getFreeBytes = async (p: string) => {
+  const fake = process.env.OMNI_FAKE_FREE_BYTES
+  if (fake && Number.isFinite(Number(fake))) return Number(fake)
+  const fn = (fs as any).statfs as undefined | ((path: string) => Promise<any>)
+  if (!fn) return null
+  const s = await fn(p)
+  const bsize = typeof s.bsize === 'number' ? s.bsize : typeof s.frsize === 'number' ? s.frsize : null
+  const bfree = typeof s.bfree === 'number' ? s.bfree : null
+  if (!bsize || !bfree) return null
+  return bsize * bfree
+}
+
 const exists = async (p: string) => {
   try {
     await fs.stat(p)
@@ -43,8 +58,51 @@ const exists = async (p: string) => {
   }
 }
 
-const requestStream = (urlStr: string): Promise<{ res: http.IncomingMessage; url: string }> =>
-  new Promise((resolve, reject) => {
+type SimpleResponse = {
+  statusCode: number
+  headers: Record<string, unknown>
+  stream: NodeJS.ReadableStream
+  resume?: () => void
+  destroy?: () => void
+}
+
+const shouldBypassProxy = (urlStr: string) => {
+  const u = new URL(urlStr)
+  const host = u.hostname
+  const noProxy = process.env.NO_PROXY || process.env.no_proxy || ''
+  if (!noProxy) return false
+  const parts = noProxy
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  for (const p of parts) {
+    if (p === '*') return true
+    if (p === host) return true
+    if (p.startsWith('.') && host.endsWith(p)) return true
+    if (!p.startsWith('.') && host.endsWith(`.${p}`)) return true
+  }
+  return false
+}
+
+let cachedProxyAgent: any = null
+
+const getProxyAgent = async (urlStr: string) => {
+  if (shouldBypassProxy(urlStr)) return null
+  const p =
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy ||
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy ||
+    ''
+  if (!p) return null
+  if (cachedProxyAgent) return cachedProxyAgent
+  cachedProxyAgent = new ProxyAgent()
+  return cachedProxyAgent
+}
+
+const requestStream = async (urlStr: string): Promise<{ res: SimpleResponse; url: string }> => {
+  const agent = await getProxyAgent(urlStr)
+  const res = await new Promise<SimpleResponse>((resolve, reject) => {
     const u = new URL(urlStr)
     const lib = u.protocol === 'https:' ? https : http
     const req = lib.request(
@@ -54,31 +112,45 @@ const requestStream = (urlStr: string): Promise<{ res: http.IncomingMessage; url
         port: u.port,
         path: `${u.pathname}${u.search}`,
         method: 'GET',
+        family: 4,
+        timeout: 30_000,
+        agent: agent || undefined,
         headers: { 'user-agent': 'OmniScraper/desktop' },
       },
-      (res) => resolve({ res, url: urlStr }),
+      (r) =>
+        resolve({
+          statusCode: r.statusCode || 0,
+          headers: r.headers as any,
+          stream: r,
+          resume: () => r.resume(),
+          destroy: () => r.destroy(),
+        }),
     )
     req.on('error', reject)
+    req.on('timeout', () => req.destroy(new Error('ETIMEDOUT')))
     req.end()
   })
+  return { res, url: urlStr }
+}
 
 const fetchWithRedirects = async (url: string, maxRedirects: number) => {
   let current = url
   for (let i = 0; i <= maxRedirects; i++) {
     const { res } = await requestStream(current)
     const code = res.statusCode || 0
-    if (code >= 300 && code < 400 && res.headers.location) {
-      const next = new URL(res.headers.location, current).toString()
-      res.resume()
+    const location = (res.headers as any).location
+    if (code >= 300 && code < 400 && location) {
+      const next = new URL(String(location), current).toString()
+      res.resume?.()
       current = next
       continue
     }
     if (code < 200 || code >= 300) {
       const body = await new Promise<string>((resolve) => {
         const chunks: Buffer[] = []
-        res.on('data', (c) => chunks.push(Buffer.from(c)))
-        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))
-        res.on('error', () => resolve(''))
+        res.stream.on('data', (c) => chunks.push(Buffer.from(c)))
+        res.stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))
+        res.stream.on('error', () => resolve(''))
       })
       throw new Error(`http_${code}:${body.slice(0, 120)}`)
     }
@@ -98,15 +170,22 @@ const safeResolveDest = (homeDir: string, dest: string) => {
   return { exportsRoot, resourcesRoot, abs }
 }
 
-const isArchiveUrl = (u: string) => u.endsWith('.zip') || u.endsWith('.tar.gz') || u.endsWith('.tgz')
+const archiveTypeFromUrl = (u: string): 'zip' | 'tar' | null => {
+  if (u.endsWith('.zip')) return 'zip'
+  if (u.endsWith('.tar.gz') || u.endsWith('.tgz')) return 'tar'
+  return null
+}
 
 const computeTargets = (homeDir: string, item: { url: string; dest: string }) => {
   const { abs } = safeResolveDest(homeDir, item.dest)
   const urlBase = path.posix.basename(new URL(item.url).pathname)
   const destExt = path.extname(abs)
-  const destIsFile = destExt.length > 1
-  if (isArchiveUrl(item.url)) {
-    return { kind: 'archive' as const, destDir: abs, tmpFile: `${abs}.tmp` }
+  const urlExt = path.extname(urlBase)
+  const destIsFile = destExt.length > 1 && urlExt.length > 1 && destExt.toLowerCase() === urlExt.toLowerCase()
+  const aType = archiveTypeFromUrl(item.url)
+  if (aType) {
+    const tmpFile = path.join(abs, `${urlBase || 'archive'}.tmp`)
+    return { kind: 'archive' as const, destDir: abs, tmpFile, archiveType: aType }
   }
   if (destIsFile) {
     return { kind: 'file' as const, destFile: abs, tmpFile: `${abs}.tmp`, readyDir: path.dirname(abs), fileName: path.basename(abs) }
@@ -125,7 +204,7 @@ const downloadOnce = async (input: {
 }) => {
   await ensureDir(path.dirname(input.tmpFile))
   const { res } = await fetchWithRedirects(input.url, 5)
-  const totalHeader = res.headers['content-length']
+  const totalHeader = (res.headers as any)['content-length']
   const total =
     typeof totalHeader === 'string' && Number.isFinite(Number(totalHeader))
       ? Number(totalHeader)
@@ -135,7 +214,7 @@ const downloadOnce = async (input: {
 
   const hash = crypto.createHash('sha256')
   let done = 0
-  res.on('data', (chunk) => {
+  res.stream.on('data', (chunk) => {
     const buf = Buffer.from(chunk)
     hash.update(buf)
     done += buf.length
@@ -145,7 +224,7 @@ const downloadOnce = async (input: {
 
   const out = createWriteStream(input.tmpFile)
   try {
-    await pipeline(res, out)
+    await pipeline(res.stream as any, out)
   } catch (e) {
     try {
       await fs.unlink(input.tmpFile)
@@ -172,18 +251,28 @@ const importModule = async (name: string): Promise<any> => {
   return fn(name)
 }
 
-const extractArchive = async (archivePath: string, destDir: string, onMessage: (m: string) => void) => {
+const requireForDeps = (() => {
+  try {
+    const metaUrl = new Function('return import.meta.url')() as string
+    return createRequire(metaUrl)
+  } catch {
+    return createRequire(typeof __filename === 'string' ? __filename : path.join(process.cwd(), 'package.json'))
+  }
+})()
+
+const extractArchive = async (input: { archivePath: string; archiveType: 'zip' | 'tar'; destDir: string }, onMessage: (m: string) => void) => {
+  const { archivePath, archiveType, destDir } = input
   await ensureDir(destDir)
-  if (archivePath.endsWith('.zip')) {
-    const mod: any = await importModule('adm-zip')
-    const AdmZip = mod.default || mod
-    const zip = new AdmZip(archivePath)
+  if (archiveType === 'zip') {
+    const AdmZip = (requireForDeps as any)('adm-zip')
+    const Zip = AdmZip.default || AdmZip
+    const zip = new Zip(archivePath)
     zip.extractAllTo(destDir, true)
     onMessage('zip_extracted')
     return
   }
-  const tar: any = await importModule('tar')
-  await tar.x({ file: archivePath, cwd: destDir })
+  const tar: any = (requireForDeps as any)('tar')
+  await (tar.default || tar).x({ file: archivePath, cwd: destDir })
   onMessage('tar_extracted')
 }
 
@@ -197,6 +286,13 @@ export const setupResources = async (opts: Options): Promise<void> => {
 
   const resourcesRoot = path.join(opts.homeDir, 'OmniScraperExports', 'resources')
   await ensureDir(resourcesRoot)
+  const requiredBytes = manifest.resources.reduce((sum, r) => sum + (typeof r.size_mb === 'number' ? r.size_mb : 0), 0) * 1024 * 1024
+  if (requiredBytes > 0) {
+    const free = await getFreeBytes(resourcesRoot)
+    if (free !== null && free < requiredBytes * 1.1) {
+      throw new Error('disk_space_insufficient')
+    }
+  }
   const lockPath = path.join(resourcesRoot, '.download.lock')
   const release = await acquireResourceLock(lockPath, { staleMs: 30 * 60 * 1000 })
   try {
@@ -224,7 +320,7 @@ export const setupResources = async (opts: Options): Promise<void> => {
 
           if (targets.kind === 'archive') {
             onProgress({ type: 'progress', resourceName: item.name, phase: 'extracting', percent: 0, message: 'extracting' })
-            await extractArchive(targets.tmpFile, targets.destDir, (m) =>
+            await extractArchive({ archivePath: targets.tmpFile, archiveType: targets.archiveType, destDir: targets.destDir }, (m) =>
               onProgress({ type: 'progress', resourceName: item.name, phase: 'extracting', percent: 50, message: m }),
             )
             try {
